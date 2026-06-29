@@ -15,10 +15,10 @@ endif()
 
 set(CMAKE_C_FLAGS "-Wall -Werror -g ${CMAKE_C_FLAGS}")
 
-add_executable(ipe-disasm main.cpp)
+add_executable(ipe-disasm main.cpp elf_parser.cpp)
 
 add_custom_target(
    run
    DEPENDS ipe-disasm
-   COMMAND ./ipe-disasm ipe-main.elf
+   COMMAND ./ipe-disasm ../ipe-main.elf
 )
