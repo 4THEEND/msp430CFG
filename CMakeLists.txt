@@ -15,7 +15,7 @@ endif()
 
 set(CMAKE_C_FLAGS "-Wall -Werror -g ${CMAKE_C_FLAGS}")
 
-add_executable(ipe-disasm main.cpp elf_parser.cpp)
+add_executable(ipe-disasm main.cpp elf_parser.cpp cfg.cpp)
 
 add_custom_target(
    run

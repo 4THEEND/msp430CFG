@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "elf_parser.hpp"
+#include "cfg.hpp"
 
 
 int main(int argc, char** argv){
@@ -17,7 +18,13 @@ int main(int argc, char** argv){
         return 1;
 
     std::vector<Symbol> symbols{ parseSymbolTable(my_file) };
-    printSymbolNames(symbols);
+    for(const auto& symbol : symbols){
+        if(symbol.executable){
+            std::cout << symbol.name << " at " << symbol.address << " is executable\n";
+        }
+    }
+
+
 
     return 0;
 }
