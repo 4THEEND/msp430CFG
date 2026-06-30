@@ -17,14 +17,12 @@ int main(int argc, char** argv){
     if(!loadELF(elf_name, my_file))
         return 1;
 
+    if(!getEntryOffset(my_file))
+        return 1;
+
     std::vector<Symbol> symbols{ parseSymbolTable(my_file) };
-    for(const auto& symbol : symbols){
-        if(symbol.executable){
-            std::cout << symbol.name << " at " << symbol.address << " is executable\n";
-        }
-    }
 
-
+    cfg binary_cfg{ my_file, symbols };
 
     return 0;
 }

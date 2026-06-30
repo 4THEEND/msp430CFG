@@ -2,8 +2,10 @@
 
 #include <inttypes.h>
 #include <iostream>
+#include <string>
 #include <functional>
 #include <vector>
+#include <array>
 
 
 // Two operands instruction's opcodes
@@ -42,18 +44,32 @@
 #define JMP     0b111
 
 // Addressing modes
-#define AS_REGISTER_MODE            0b00
-#define AS_INDEXED_MODE             0b01
-#define AS_SYMBOLIC_MODE            0b01
-#define AS_ABSOLUTE_MODE            0b01 
-#define AS_INDIRECT_REGISTER_MODE   0b10
-#define AS_INDIRECT_AUTOINCREMENT   0b11
-#define AS_IMMEDIATE_MODE           0b11
+#define AS_MODE_0   0b00
+#define AS_MODE_1   0b01 
+#define AS_MODE_2   0b10
+#define AS_MODE_3   0b11
 
-#define AD_REGISTER_MODE    0
-#define AD_INDEXED_MODE     1
-#define AD_SYMBOLIC_MODE    1
-#define AD_ABSOLUTE_MODE    1
+#define AD_MODE_0    0
+#define AD_MODE_1    1
+
+enum class AddressingMode {
+    REGISTER_MODE,
+    INDEXED_MODE,
+    SYMBOLIC_MODE,
+    ABSOLUTE_MODE,
+    INDIRECT_REGISTER_MODE,
+    INDIRECT_AUTOINCREMENT,
+    IMMEDIATE_MODE,
+
+    CONSTANT_MODE0,
+    CONSTANT_MODE1,
+    CONSTANT_MODE2,
+    CONSTANT_MODE4,
+    CONSTANT_MODE8,
+    CONSTANT_MODE_NEG1,
+
+    INVALID_MODE
+};
 
 
 // Registers
@@ -78,28 +94,164 @@ enum RegisterEnum {
 
 
 class Instruction {
-private:
-    uint8_t get_as_mode(uint8_t As, uint8_t source){ return 0; };
-    uint8_t get_ad_mode(bool Ad, uint8_t destination){ return 0; };
+protected:
+    std::array<std::string, 16> regs_assoc{
+        "pc", "sp", "sr", "zero", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
+    };
+    //length of instruction in words
+    int instruction_length;
     
 public:
-    std::ostream& operator<<(std::ostream& os){ return os; };
-    virtual bool consume(uint16_t instruction) = 0;
+    virtual std::string getString() = 0;
+    virtual bool consume(uint32_t instruction_address, uint8_t* memory) = 0;
+
+    inline int getLength(){ return instruction_length; };
+
+    friend std::ostream& operator<<(std::ostream& os, Instruction& instr){
+        os << instr.getString();
+        return os;
+    };
+
+protected:
+    uint16_t read_memory(uint32_t address, uint8_t* memory);
+    
+    bool should_get_complement(AddressingMode Am);
+    AddressingMode parse_mode(uint8_t Am, uint8_t source);
+    AddressingMode parse_mode(AddressingMode Am, uint16_t immediate);
+
+    std::string decorate_reg(uint8_t reg, AddressingMode Am, uint16_t source_extension);
 };
 
 
 class Format1Instruction : public Instruction {
-private:
+protected:
     uint8_t opcode;
+
+    AddressingMode As;
     uint8_t source;
-    bool Ad;
-    bool byte_instruction;
-    uint8_t As;
+    uint16_t source_complement;
+
+    AddressingMode Ad;
     uint8_t destination;
+    uint16_t destination_complement;
+
+    bool byte_instruction;
+    
 public:
-    bool consume(uint16_t instruction) override {
-        return (instruction >> 12 == opcode);
-    } 
+    Format1Instruction(uint8_t op) : opcode(op) {};
+    bool consume(uint32_t instruction_address, uint8_t* memory) override;
+
+protected:
+    std::string abstractGetString(std::string instruction_name);
+};
+
+
+class MOVInstruction : public Format1Instruction {
+public:
+    MOVInstruction() : Format1Instruction(MOV) {};
+
+    std::string getString() override {
+        return abstractGetString("mov");
+    }
+};
+
+class ADDInstruction : public Format1Instruction {
+public:
+    ADDInstruction() : Format1Instruction(ADD) {};
+
+    std::string getString() override {
+        return abstractGetString("add");
+    }
+};
+
+class ADDCInstruction : public Format1Instruction {
+public:
+    ADDCInstruction() : Format1Instruction(ADDC) {};
+
+    std::string getString() override {
+        return abstractGetString("addc");
+    }
+};
+
+class SUBCInstruction : public Format1Instruction {
+public:
+    SUBCInstruction() : Format1Instruction(SUBC) {};
+
+    std::string getString() override {
+        return abstractGetString("subc");
+    }
+};
+
+class SUBInstruction : public Format1Instruction {
+public:
+    SUBInstruction() : Format1Instruction(SUB) {};
+
+    std::string getString() override {
+        return abstractGetString("sub");
+    }
+};
+
+class CMPInstruction : public Format1Instruction {
+public:
+    CMPInstruction() : Format1Instruction(CMP) {};
+
+    std::string getString() override {
+        return abstractGetString("cmp");
+    }
+};
+
+class DADDInstruction : public Format1Instruction {
+public:
+    DADDInstruction() : Format1Instruction(DADD) {};
+
+    std::string getString() override {
+        return abstractGetString("dadd");
+    }
+};
+
+class BITInstruction : public Format1Instruction {
+public:
+    BITInstruction() : Format1Instruction(BIT) {};
+
+    std::string getString() override {
+        return abstractGetString("bit");
+    }
+};
+
+class BICInstruction : public Format1Instruction {
+public:
+    BICInstruction() : Format1Instruction(BIC) {};
+
+    std::string getString() override {
+        return abstractGetString("bic");
+    }
+};
+
+class BISInstruction : public Format1Instruction {
+public:
+    BISInstruction() : Format1Instruction(BIS) {};
+
+    std::string getString() override {
+        return abstractGetString("bis");
+    }
+};
+
+class XORInstruction : public Format1Instruction {
+public:
+    XORInstruction() : Format1Instruction(XOR) {};
+
+    std::string getString() override {
+        return abstractGetString("xor");
+    }
+};
+
+class ANDInstruction : public Format1Instruction {
+public:
+    ANDInstruction() : Format1Instruction(AND) {};
+
+    std::string getString() override {
+        return abstractGetString("and");
+    }
 };
 
 
@@ -107,11 +259,79 @@ class Format2Instruction : public Instruction {
 private:
     uint8_t opcode;
     bool byte_instruction;
-    uint8_t As;
+
+    AddressingMode As;
     uint8_t source;
+    uint16_t source_complement;
+
 public:
-    bool consume(uint16_t instruction) override {
-        return (instruction >> 10 == FORMAT_2_PREFIX) && (((instruction >> 7) & 0b111) == opcode);
+    Format2Instruction(uint8_t op) : opcode(op) {};
+    bool consume(uint32_t instruction_address, uint8_t* memory) override;
+
+protected:
+    std::string abstractGetString(std::string instruction_name);
+};
+
+class RRCInstruction : public Format2Instruction {
+public:
+    RRCInstruction() : Format2Instruction(RRC) {};
+
+    std::string getString() override {
+        return abstractGetString("rrc");
+    }
+};
+
+class SWPBInstruction : public Format2Instruction {
+public:
+    SWPBInstruction() : Format2Instruction(SWPB) {};
+
+    std::string getString() override {
+        return abstractGetString("swpb");
+    }
+};
+
+class RRAInstruction : public Format2Instruction {
+public:
+    RRAInstruction() : Format2Instruction(RRA) {};
+
+    std::string getString() override {
+        return abstractGetString("rra");
+    }
+};
+
+class SXTInstruction : public Format2Instruction {
+public:
+    SXTInstruction() : Format2Instruction(SXT) {};
+
+    std::string getString() override {
+        return abstractGetString("sxt");
+    }
+};
+
+class PUSHInstruction : public Format2Instruction {
+public:
+    PUSHInstruction() : Format2Instruction(PUSH) {};
+
+    std::string getString() override {
+        return abstractGetString("push");
+    }
+};
+
+class CALLInstruction : public Format2Instruction {
+public:
+    CALLInstruction() : Format2Instruction(CALL) {};
+
+    std::string getString() override {
+        return abstractGetString("call");
+    }
+};
+
+class RETIInstruction : public Format2Instruction {
+public:
+    RETIInstruction() : Format2Instruction(RETI) {};
+
+    std::string getString() override {
+        return abstractGetString("reti");
     }
 };
 
@@ -121,8 +341,82 @@ private:
     uint8_t condition;
     uint16_t pc_offset;
 public:
-    bool consume(uint16_t instruction) override {
-        return (instruction >> 13 == FORMAT_3_PREFIX) && (((instruction >> 10) & 0b111) == condition);
+    Format3Instruction(uint8_t c) : condition(c) {};
+    bool consume(uint32_t instruction_address, uint8_t* memory) override;
+
+protected:
+    std::string abstractGetString(std::string instruction_name);
+};
+
+class JNZInstruction : public Format3Instruction {
+public:
+    JNZInstruction() : Format3Instruction(JNZ) {};
+
+    std::string getString() override {
+        return abstractGetString("jnz");
+    }
+};
+
+class JZInstruction : public Format3Instruction {
+public:
+    JZInstruction() : Format3Instruction(JZ) {};
+
+    std::string getString() override {
+        return abstractGetString("jz");
+    }
+};
+
+class JLOInstruction : public Format3Instruction {
+public:
+    JLOInstruction() : Format3Instruction(JLO) {};
+
+    std::string getString() override {
+        return abstractGetString("jlo");
+    }
+};
+
+class JHSInstruction : public Format3Instruction {
+public:
+    JHSInstruction() : Format3Instruction(JHS) {};
+
+    std::string getString() override {
+        return abstractGetString("jhs");
+    }
+};
+
+class JNInstruction : public Format3Instruction {
+public:
+    JNInstruction() : Format3Instruction(JN) {};
+
+    std::string getString() override {
+        return abstractGetString("jn");
+    }
+};
+
+class JGEInstruction : public Format3Instruction {
+public:
+    JGEInstruction() : Format3Instruction(JGE) {};
+
+    std::string getString() override {
+        return abstractGetString("jge");
+    }
+};
+
+class JLInstruction : public Format3Instruction {
+public:
+    JLInstruction() : Format3Instruction(JL) {};
+
+    std::string getString() override {
+        return abstractGetString("jl");
+    }
+};
+
+class JMPInstruction : public Format3Instruction {
+public:
+    JMPInstruction() : Format3Instruction(JMP) {};
+
+    std::string getString() override {
+        return abstractGetString("jmp");
     }
 };
 
@@ -136,10 +430,10 @@ public:
         return instruction_types.size();
     }
 
-    Instruction* Build(uint16_t instruction) const {
+    Instruction* Build(uint32_t instruction_address, uint8_t* memory) const {
         for(const Builder& b: instruction_types){
             Instruction* inst = b();
-            if(inst->consume(instruction)){
+            if(inst->consume(instruction_address, memory)){
                 return inst;
             }
         }
@@ -156,6 +450,32 @@ template <typename Derived>
 Instruction* instructionBuilder() { return new Derived(); }
 
 
-static const int type1 = GetInstructionFactory().Register(instructionBuilder<Format1Instruction>);
-static const int type2 = GetInstructionFactory().Register(instructionBuilder<Format2Instruction>);
-static const int type3 = GetInstructionFactory().Register(instructionBuilder<Format3Instruction>);
+static const int i_mov = GetInstructionFactory().Register(instructionBuilder<MOVInstruction>);
+static const int i_add = GetInstructionFactory().Register(instructionBuilder<ADDInstruction>);
+static const int i_addc = GetInstructionFactory().Register(instructionBuilder<ADDCInstruction>);
+static const int i_subc = GetInstructionFactory().Register(instructionBuilder<SUBCInstruction>);
+static const int i_sub = GetInstructionFactory().Register(instructionBuilder<SUBInstruction>);
+static const int i_cmp = GetInstructionFactory().Register(instructionBuilder<CMPInstruction>);
+static const int i_dadd = GetInstructionFactory().Register(instructionBuilder<DADDInstruction>);
+static const int i_bic = GetInstructionFactory().Register(instructionBuilder<BICInstruction>);
+static const int i_bit = GetInstructionFactory().Register(instructionBuilder<BITInstruction>);
+static const int i_bis = GetInstructionFactory().Register(instructionBuilder<BISInstruction>);
+static const int i_xor = GetInstructionFactory().Register(instructionBuilder<XORInstruction>);
+static const int i_and = GetInstructionFactory().Register(instructionBuilder<ANDInstruction>);
+
+static const int i_rrc = GetInstructionFactory().Register(instructionBuilder<RRCInstruction>);
+static const int i_swpb = GetInstructionFactory().Register(instructionBuilder<SWPBInstruction>);
+static const int i_rra = GetInstructionFactory().Register(instructionBuilder<RRAInstruction>);
+static const int i_sxt = GetInstructionFactory().Register(instructionBuilder<SXTInstruction>);
+static const int i_push = GetInstructionFactory().Register(instructionBuilder<PUSHInstruction>);
+static const int i_call = GetInstructionFactory().Register(instructionBuilder<CALLInstruction>);
+static const int i_reti = GetInstructionFactory().Register(instructionBuilder<RETIInstruction>);
+
+static const int i_jnz = GetInstructionFactory().Register(instructionBuilder<JNZInstruction>);
+static const int i_jz = GetInstructionFactory().Register(instructionBuilder<JZInstruction>);
+static const int i_jlo = GetInstructionFactory().Register(instructionBuilder<JLOInstruction>);
+static const int i_jhs = GetInstructionFactory().Register(instructionBuilder<JHSInstruction>);
+static const int i_jn = GetInstructionFactory().Register(instructionBuilder<JNInstruction>);
+static const int i_jge = GetInstructionFactory().Register(instructionBuilder<JGEInstruction>);
+static const int i_jl = GetInstructionFactory().Register(instructionBuilder<JLInstruction>);
+static const int i_jmp = GetInstructionFactory().Register(instructionBuilder<JMPInstruction>);

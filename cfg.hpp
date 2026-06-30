@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <stack>
 #include <set>
 #include <memory>
 
@@ -25,9 +24,10 @@ class cfg
 {
 private:
     std::vector<std::shared_ptr<BasicBlock>> m_basic_blocks;
+    ELFFile m_elf_file;
 
 public:
-    cfg(ELFFile file, std::stack<Symbol> symbols);
+    cfg(ELFFile file, std::vector<Symbol> symbols);
 
 private:
     void explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::set<uint32_t>& seen);
