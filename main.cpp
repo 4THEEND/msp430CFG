@@ -23,6 +23,7 @@ int main(int argc, char** argv){
     std::vector<Symbol> symbols{ parseSymbolTable(my_file) };
 
     cfg binary_cfg{ my_file, symbols };
+    binary_cfg.exportCFGToDOT("cfg");
 
     return 0;
 }

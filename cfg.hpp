@@ -1,23 +1,28 @@
 #pragma once
 
 #include <vector>
-#include <set>
+#include <map>
 #include <memory>
+#include <stack>
 
 #include "Instruction.hpp"
 #include "elf_parser.hpp"
 
+
 struct BasicBlock
 {
-    std::vector<Instruction> instructions;
+    std::vector<std::shared_ptr<Instruction>> instructions;
 
     uint32_t first_address;
-    uint32_t block_length;
 
     std::vector<std::shared_ptr<BasicBlock>> successors;
 
-    BasicBlock(uint32_t address) : first_address(address), block_length(0) {};
+    BasicBlock(uint32_t address) : first_address(address) {};
+    inline void addInstruction(std::shared_ptr<Instruction> instruction){ instructions.emplace_back(instruction); };
+    inline int nb_instruction(){ return instructions.size(); };
 };
+
+using AddressAssign = std::map<uint32_t, std::shared_ptr<BasicBlock>>;
 
 
 class cfg
@@ -28,7 +33,9 @@ private:
 
 public:
     cfg(ELFFile file, std::vector<Symbol> symbols);
+    void exportCFGToDOT(const std::string &filename);
 
 private:
-    void explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::set<uint32_t>& seen);
+    std::shared_ptr<BasicBlock> splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr, AddressAssign& seen);
+    void explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, AddressAssign& seen, std::stack<uint32_t> return_stack);
 };

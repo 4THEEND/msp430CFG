@@ -33,8 +33,7 @@ bool loadELF(const std::string &filename, ELFFile &elfFile)
     return true;
 }
 
-bool getEntryOffset(ELFFile &elfFile)
-{
+uint32_t getAddressOffset(ELFFile &elfFile, uint32_t address, bool entrypoint){
     if (elfFile.data.size() < sizeof(Elf32_Ehdr))
     {
         std::cerr << "Invalid ELF file." << std::endl;
@@ -44,22 +43,32 @@ bool getEntryOffset(ELFFile &elfFile)
     Elf32_Ehdr *header = reinterpret_cast<Elf32_Ehdr *>(elfFile.data.data());
     Elf32_Phdr *program_headers = reinterpret_cast<Elf32_Phdr *>(elfFile.data.data() + header->e_phoff);
 
-    uint32_t entry_point = header->e_entry;
-    uint32_t entry_offset = 0;
+    if(entrypoint){
+        address = header->e_entry;
+        elfFile.entry_addr = address;
+    }
+        
 
     for (int i = 0; i < header->e_phnum; i++)
     {
         Elf32_Phdr &ph = program_headers[i];
-        if (ph.p_type == PT_LOAD && ph.p_vaddr <= entry_point && entry_point < ph.p_vaddr + ph.p_memsz)
-        {
-            entry_offset = entry_point - ph.p_vaddr + ph.p_offset;
-            elfFile.entry_offset = entry_offset;
-            return true;
-        }
+        if (ph.p_type == PT_LOAD && ph.p_vaddr <= address && address < ph.p_vaddr + ph.p_memsz)
+            return address - ph.p_vaddr + ph.p_offset;
     }
 
-    std::cerr << "Entry offset not found." << std::endl;
-    return false;
+    std::cerr << "Offset not found." << std::endl;
+    return -1;
+}
+
+
+bool getEntryOffset(ELFFile &elfFile)
+{
+    uint32_t result = getAddressOffset(elfFile, 0, true);
+    if(result == -1)
+        return false;
+
+    elfFile.entry_offset = result;
+    return true;
 }
 
 std::vector<Symbol> parseSymbolTable(ELFFile &elfFile)

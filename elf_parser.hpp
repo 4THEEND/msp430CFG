@@ -15,6 +15,7 @@ struct ELFFile
 {
     std::vector<uint8_t> data;
     uint32_t entry_offset;
+    uint32_t entry_addr;
     uint32_t dymsym_header_offset;
     uint32_t sym_header_offset;
 };
@@ -30,6 +31,7 @@ struct Symbol
 };
 
 bool loadELF(const std::string &filename, ELFFile &elfFile);
+uint32_t getAddressOffset(ELFFile &elfFile, uint32_t address, bool entrypoint = false);
 bool getEntryOffset(ELFFile &elfFile);
 void printSymbolNames(const std::vector<Symbol> &symbols);
 std::vector<Symbol> parseSymbolTable(ELFFile &elfFile);
