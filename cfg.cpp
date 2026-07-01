@@ -5,7 +5,7 @@
 #include <sstream>
 
 
-std::shared_ptr<BasicBlock> cfg::splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr, AddressAssign& seen){
+std::shared_ptr<BasicBlock> cfg::splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr){
     std::cout << "Splitting at " << std::hex << addr << "\n";
     if(addr == current_block->first_address)
         return current_block;
@@ -41,10 +41,7 @@ std::shared_ptr<BasicBlock> cfg::splitBlock(std::shared_ptr<BasicBlock> current_
 }
 
 
-void cfg::explore_address(
-    uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, 
-    AddressAssign& seen, std::stack<uint32_t> return_stack
-){
+void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack){
     if(seen.find(instr_address) != seen.end()){
         std::cout << "Already seen instruction " << std::hex << instr_address << "\n";
         return;
@@ -74,7 +71,7 @@ void cfg::explore_address(
 
         auto it = seen.find(next_addr);
         if(it != seen.end()){
-            std::shared_ptr<BasicBlock> new_bb = splitBlock(it->second, it->first, seen);
+            std::shared_ptr<BasicBlock> new_bb = splitBlock(it->second, it->first);
             current_basic_block->successors.emplace_back(new_bb);
         } 
         else if(new_instr->modify_control_flow){
@@ -85,11 +82,11 @@ void cfg::explore_address(
 
             if(new_instr->is_call)
                 return_stack.push(instr_address + 2 * new_instr->instruction_length);
-            explore_address(next_addr, new_bb, seen, return_stack);
+            explore_address(next_addr, new_bb, return_stack);
         }
         else {
             // Only one address inside
-            explore_address(next_addrs.front(), current_basic_block, seen, return_stack);
+            explore_address(next_addrs.front(), current_basic_block, return_stack);
         }
     }
 
@@ -153,16 +150,15 @@ void cfg::exportCFGToDOT(const std::string &filename)
 
 
 cfg::cfg(ELFFile file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble)
-    : m_elf_file(file), m_symbols(symbols)
+    : m_elf_file(file), m_symbols(symbols), seen()
 {
-    AddressAssign seen{};
     std::shared_ptr<BasicBlock> current_bb{};
 
     if(symbols_to_disassemble.empty()){
         current_bb = std::make_shared<BasicBlock>(file.entry_addr);
         m_basic_blocks = { current_bb };
 
-        explore_address(file.entry_addr, current_bb, seen, {});
+        explore_address(file.entry_addr, current_bb, {});
     }
 
     for(const auto& symbol : m_symbols){
@@ -177,7 +173,7 @@ cfg::cfg(ELFFile file, std::vector<Symbol>& symbols, std::vector<std::string>& s
                 current_bb = std::make_shared<BasicBlock>(symbol.address);
                 m_basic_blocks.emplace_back(current_bb);
 
-                explore_address(symbol.address, current_bb, seen, {});
+                explore_address(symbol.address, current_bb, {});
             }
         }
     }

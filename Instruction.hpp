@@ -112,6 +112,7 @@ public:
 public:
     virtual std::string getString() = 0;
     virtual bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) = 0;
+    virtual int get_instruction_timing() = 0;
 
     friend std::ostream& operator<<(std::ostream& os, Instruction& instr){
         os << instr.getString();
@@ -146,9 +147,11 @@ protected:
 public:
     Format1Instruction(uint8_t op) : opcode(op) {};
     bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
+    int get_instruction_timing() override;
 
 protected:
     std::string abstractGetString(std::string instruction_name);
+        inline int get_rom_penalty(){ return opcode == CMP || opcode == BIC ? 0 : 1; };
 };
 
 
@@ -274,10 +277,12 @@ protected:
 
 public:
     bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
+    int get_instruction_timing() override;
 
 protected:
     Format2Instruction(uint8_t op) : opcode(op) {};
     std::string abstractGetString(std::string instruction_name);
+    inline int get_rom_penalty(){ return 1; };
 };
 
 class RRCInstruction : public Format2Instruction {
@@ -351,6 +356,7 @@ private:
 public:
     Format3Instruction(uint8_t c) : condition(c) {};
     bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
+    int get_instruction_timing() override;
 
 protected:
     std::string abstractGetString(std::string instruction_name);

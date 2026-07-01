@@ -29,6 +29,7 @@ class cfg
 {
 private:
     std::vector<std::shared_ptr<BasicBlock>> m_basic_blocks;
+    AddressAssign seen;
     ELFFile m_elf_file;
     std::vector<Symbol> m_symbols;
 
@@ -37,6 +38,6 @@ public:
     void exportCFGToDOT(const std::string& filename);
 
 private:
-    std::shared_ptr<BasicBlock> splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr, AddressAssign& seen);
-    void explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, AddressAssign& seen, std::stack<uint32_t> return_stack);
+    std::shared_ptr<BasicBlock> splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr);
+    void explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack);
 };

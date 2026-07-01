@@ -3,7 +3,6 @@
 
 #include <iomanip>
 
-
 std::string uint16_to_hex_string(uint16_t n){
     std::stringstream stream;
     stream << "0x" << std::hex << n;
@@ -141,6 +140,54 @@ bool Format1Instruction::consume(uint32_t instruction_address, uint8_t* memory, 
 } 
 
 
+int Format1Instruction::get_instruction_timing(){
+    int dadd_penalty = opcode == DADD ? 1 : 0;
+    switch(As){
+        case AddressingMode::REGISTER_MODE:
+        case AddressingMode::CONSTANT_MODE0:
+        case AddressingMode::CONSTANT_MODE1:
+        case AddressingMode::CONSTANT_MODE2:
+        case AddressingMode::CONSTANT_MODE4:
+        case AddressingMode::CONSTANT_MODE8:
+        case AddressingMode::CONSTANT_MODE_NEG1:
+            if(Ad == AddressingMode::REGISTER_MODE 
+                || Ad == AddressingMode::CONSTANT_MODE0 
+                || Ad == AddressingMode::CONSTANT_MODE1 
+                || Ad == AddressingMode::CONSTANT_MODE2 
+                || Ad == AddressingMode::CONSTANT_MODE4 
+                || Ad == AddressingMode::CONSTANT_MODE8 
+                || Ad == AddressingMode::CONSTANT_MODE_NEG1){
+                if(destination == PC)
+                    return 2 + dadd_penalty;
+                return 1 + dadd_penalty;
+            }
+            else if(Ad == AddressingMode::INDEXED_MODE || Ad == AddressingMode::SYMBOLIC_MODE || Ad == AddressingMode::ABSOLUTE_MODE)
+                return 4 + get_rom_penalty() + dadd_penalty;
+        case AddressingMode::INDEXED_MODE:
+        case AddressingMode::SYMBOLIC_MODE:
+        case AddressingMode::ABSOLUTE_MODE:
+            if(Ad == AddressingMode::REGISTER_MODE){
+                if(destination == PC)
+                    return 4 + dadd_penalty;
+                return 3 + dadd_penalty;
+            }
+            else if(Ad == AddressingMode::INDEXED_MODE || Ad == AddressingMode::SYMBOLIC_MODE || Ad == AddressingMode::ABSOLUTE_MODE)
+                return 6 + get_rom_penalty() + dadd_penalty;
+        case AddressingMode::INDIRECT_REGISTER_MODE:
+        case AddressingMode::INDIRECT_AUTOINCREMENT:
+        case  AddressingMode::IMMEDIATE_MODE:
+            if(Ad == AddressingMode::REGISTER_MODE){
+                if(destination == PC)
+                    return 3 + dadd_penalty;
+                return 2 + dadd_penalty;
+            }
+            else if(Ad == AddressingMode::INDEXED_MODE || Ad == AddressingMode::SYMBOLIC_MODE || Ad == AddressingMode::ABSOLUTE_MODE)
+                return 5 + get_rom_penalty() + dadd_penalty;
+    }  
+    return 0;
+}
+
+
 std::string Format1Instruction::abstractGetString(std::string instruction_name){
     return instruction_name 
         + (byte_instruction ? ".b " : " ") 
@@ -186,6 +233,59 @@ bool Format2Instruction::consume(uint32_t instruction_address, uint8_t* memory, 
 }
 
 
+int Format2Instruction::get_instruction_timing(){
+    switch(As){
+        case AddressingMode::REGISTER_MODE:
+        case AddressingMode::CONSTANT_MODE0: 
+        case AddressingMode::CONSTANT_MODE1:
+        case AddressingMode::CONSTANT_MODE2: 
+        case AddressingMode::CONSTANT_MODE4: 
+        case AddressingMode::CONSTANT_MODE8: 
+        case AddressingMode::CONSTANT_MODE_NEG1:
+            if(opcode == PUSH)
+                return 3 + get_rom_penalty();
+            else if(opcode == CALL)
+                // 4 on MSP430
+                return 3 + get_rom_penalty();
+            return 1;
+
+        case AddressingMode::INDEXED_MODE: 
+        case AddressingMode::SYMBOLIC_MODE:
+        case AddressingMode::ABSOLUTE_MODE:
+            if(opcode == PUSH)
+                return 5 + get_rom_penalty();
+            else if(opcode == CALL)
+                        return 5 + get_rom_penalty();
+            return 4 + get_rom_penalty();
+        
+        
+        case AddressingMode::INDIRECT_REGISTER_MODE:
+            if(opcode == PUSH)
+                return 4 + get_rom_penalty();
+            else if(opcode == CALL)
+                return 4 + get_rom_penalty();
+            return 3 + get_rom_penalty();
+        
+        case AddressingMode::INDIRECT_AUTOINCREMENT:
+            if(opcode == PUSH)
+                // 5 on MSP430
+                return 4 + get_rom_penalty();
+            else if(opcode == CALL)
+                // 5 on MSP430
+                return 4 + get_rom_penalty();
+            return 3 + get_rom_penalty();
+        
+        case AddressingMode::IMMEDIATE_MODE:
+            if(opcode == PUSH)
+                return 4 + get_rom_penalty();
+            else if(opcode == CALL)
+                return 4 + get_rom_penalty();
+    }
+
+    return 0;
+}
+
+
 std::string Format2Instruction::abstractGetString(std::string instruction_name){
     return instruction_name 
         + (byte_instruction ? ".b " : " ") 
@@ -214,6 +314,11 @@ bool Format3Instruction::consume(uint32_t instruction_address, uint8_t* memory, 
     if(condition != JMP)
         next_addrs.emplace_back(instruction_address + 2 * instruction_length);
     return true;
+}
+
+
+int Format3Instruction::get_instruction_timing(){
+    return 2;
 }
 
 
