@@ -107,12 +107,15 @@ public:
     bool is_ret = false;
     bool is_call = false;
     bool modify_control_flow;
+
+    // Only use during disassembly
     std::vector<uint32_t> next_addrs;
     
 public:
     virtual std::string getString() = 0;
     virtual bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) = 0;
     virtual int get_instruction_timing() = 0;
+    virtual std::array<uint16_t, 3> get_instruction() = 0;
 
     friend std::ostream& operator<<(std::ostream& os, Instruction& instr){
         os << instr.getString();
@@ -124,7 +127,7 @@ protected:
     
     bool should_get_complement(AddressingMode Am);
     AddressingMode parse_mode(uint8_t Am, uint8_t source);
-    AddressingMode parse_mode(AddressingMode Am, uint16_t immediate);
+    uint8_t parse_mode(AddressingMode Am, bool is_source = true);
 
     std::string decorate_reg(uint8_t reg, AddressingMode Am, uint16_t source_extension);
 };
@@ -136,18 +139,26 @@ protected:
 
     AddressingMode As;
     uint8_t source;
-    uint16_t source_complement;
+    uint16_t source_complement = 0;
 
     AddressingMode Ad;
     uint8_t destination;
-    uint16_t destination_complement;
+    uint16_t destination_complement = 0;
 
     bool byte_instruction;
     
 public:
     Format1Instruction(uint8_t op) : opcode(op) {};
+    Format1Instruction(
+        uint32_t addr, uint8_t op,
+        AddressingMode as, uint8_t src, 
+        AddressingMode ad, uint8_t dst,
+        uint16_t sc = 0, uint16_t dc = 0
+    ) : opcode(op), As(as), Ad(ad), source(src), destination(dst), source_complement(sc), destination_complement(dc) {address = addr;};
+
     bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
     int get_instruction_timing() override;
+    std::array<uint16_t, 3> get_instruction() override;
 
 protected:
     std::string abstractGetString(std::string instruction_name);
@@ -278,9 +289,15 @@ protected:
 public:
     bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
     int get_instruction_timing() override;
+    std::array<uint16_t, 3> get_instruction() override;
 
 protected:
     Format2Instruction(uint8_t op) : opcode(op) {};
+    Format2Instruction(
+        uint32_t addr, uint8_t op,
+        AddressingMode as, uint8_t src, 
+        uint16_t sc = 0
+    ) : opcode(op), As(as), source_complement(sc) {address = addr;};
     std::string abstractGetString(std::string instruction_name);
     inline int get_rom_penalty(){ return 1; };
 };
@@ -355,8 +372,14 @@ private:
     int16_t pc_offset;
 public:
     Format3Instruction(uint8_t c) : condition(c) {};
+    // offset >> 1 - 1 = (offset - 2)/2
+    Format3Instruction(uint32_t addr, uint8_t cond, uint16_t offset)
+        : condition(cond), pc_offset(offset >> 1 - 1)
+    {address = addr;};
+
     bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
     int get_instruction_timing() override;
+    std::array<uint16_t, 3> get_instruction() override;
 
 protected:
     std::string abstractGetString(std::string instruction_name);

@@ -85,6 +85,31 @@ AddressingMode Instruction::parse_mode(uint8_t Am, uint8_t source){
     }
 }
 
+// We've parse_mode(parse_mode) = id lol
+uint8_t Instruction::parse_mode(AddressingMode Am, bool is_source){
+    switch(Am){
+        case AddressingMode::CONSTANT_MODE0:
+        case AddressingMode::REGISTER_MODE:
+            return AS_MODE_0;
+        case AddressingMode::ABSOLUTE_MODE:
+        case AddressingMode::SYMBOLIC_MODE:
+        case AddressingMode::CONSTANT_MODE1:
+        case AddressingMode::INDEXED_MODE:
+            return AS_MODE_1;
+        case AddressingMode::CONSTANT_MODE2:
+        case AddressingMode::CONSTANT_MODE4:
+        case AddressingMode::INDIRECT_REGISTER_MODE:
+            return AS_MODE_2;
+        case AddressingMode::IMMEDIATE_MODE:
+        case AddressingMode::CONSTANT_MODE8:
+        case AddressingMode::INDIRECT_AUTOINCREMENT:
+            return AS_MODE_3;
+        default:
+            std::cerr << "Unable to find the right mode\n";
+            return -1;
+    }
+
+}
 
 bool Instruction::should_get_complement(AddressingMode Am){
     return (Am == AddressingMode::INDEXED_MODE)
@@ -188,6 +213,28 @@ int Format1Instruction::get_instruction_timing(){
 }
 
 
+std::array<uint16_t, 3> Format1Instruction::get_instruction(){
+    uint16_t header{};
+
+    header += opcode << 12;
+    header += (source & 0b1111) << 8;
+    header += (parse_mode(Ad, false) & 1) << 7;
+    header += (byte_instruction & 1) << 6;
+    header += (parse_mode(As) & 0b11) << 4;
+    header += destination & 0b1111;
+
+    if(should_get_complement(As)){
+        if(should_get_complement(Ad))
+            return {header, source_complement, destination_complement};
+        return {header, source_complement, 0};
+    }
+    else if(should_get_complement(Ad))
+        return {header, destination_complement, 0};
+
+    return {header, 0, 0};
+}
+
+
 std::string Format1Instruction::abstractGetString(std::string instruction_name){
     return instruction_name 
         + (byte_instruction ? ".b " : " ") 
@@ -286,6 +333,22 @@ int Format2Instruction::get_instruction_timing(){
 }
 
 
+std::array<uint16_t, 3> Format2Instruction::get_instruction(){
+    uint16_t header{};
+
+    header += FORMAT_2_PREFIX << 10;
+    header += (opcode & 0b111) << 7;
+    header += (byte_instruction & 1) << 6;
+    header += (parse_mode(As) & 0b11) << 4;
+    header += source & 0b1111;
+
+    if(should_get_complement(As))
+        return {header, source_complement, 0};
+        
+    return {header, 0, 0};
+}
+
+
 std::string Format2Instruction::abstractGetString(std::string instruction_name){
     return instruction_name 
         + (byte_instruction ? ".b " : " ") 
@@ -319,6 +382,11 @@ bool Format3Instruction::consume(uint32_t instruction_address, uint8_t* memory, 
 
 int Format3Instruction::get_instruction_timing(){
     return 2;
+}
+
+
+std::array<uint16_t, 3> Format3Instruction::get_instruction(){
+    return {(uint16_t)((FORMAT_3_PREFIX << 13) + (condition << 10) + (pc_offset & 0b1111111111)), 0, 0};
 }
 
 
