@@ -1,18 +1,37 @@
 #include <iostream>
 #include <vector>
 
+#include <argparse/argparse.hpp>
+
 #include "elf_parser.hpp"
 #include "cfg.hpp"
 
 
 int main(int argc, char** argv){
-    if(argc < 2){
-        std::cout << "You should provide a binary to disassemble\n";
+    argparse::ArgumentParser program("ipe-disasm");
+
+    program.add_argument("binary")
+        .help("Binary of which we want to build the cfg");
+    
+    program.add_argument("-o")
+        .help("Name of the output .dot file")
+        .default_value("cfg.dot");
+
+    program.add_argument("-s", "--symbols")
+        .help("Where we want to start our recursive disassembly")
+        .nargs(2);
+
+    try {
+        program.parse_args(argc, argv);
+    }
+    catch (const std::exception& err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << program;
         return 1;
     }
 
     ELFFile my_file{};
-    std::string elf_name{ argv[1] };
+    std::string elf_name{ program.get("binary") };
 
     if(!loadELF(elf_name, my_file))
         return 1;
@@ -22,8 +41,12 @@ int main(int argc, char** argv){
 
     std::vector<Symbol> symbols{ parseSymbolTable(my_file) };
 
-    cfg binary_cfg{ my_file, symbols };
-    binary_cfg.exportCFGToDOT("cfg");
+    auto symbols_to_start = program.get<std::vector<std::string>>("-s");
+    for(const auto& symbol : symbols_to_start)
+        std::cout << symbol << "\n";
+
+    cfg binary_cfg{ my_file, symbols, symbols_to_start };
+    binary_cfg.exportCFGToDOT(program.get("-o"));
 
     return 0;
 }

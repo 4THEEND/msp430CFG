@@ -33,7 +33,7 @@ private:
     std::vector<Symbol> m_symbols;
 
 public:
-    cfg(ELFFile file, std::vector<Symbol>& symbols);
+    cfg(ELFFile file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble);
     void exportCFGToDOT(const std::string& filename);
 
 private:

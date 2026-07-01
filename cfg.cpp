@@ -64,47 +64,35 @@ void cfg::explore_address(
 
     std::vector<uint32_t> next_addrs = new_instr->next_addrs;
     if(new_instr->is_ret && !return_stack.empty()){
-        uint32_t next_addr = return_stack.top();
+        next_addrs = { return_stack.top() };
         return_stack.pop();
+    }
+
+    for(uint32_t next_addr : next_addrs){
+        // In case of splits
+        current_basic_block = seen.find(instr_address)->second;
 
         auto it = seen.find(next_addr);
         if(it != seen.end()){
             std::shared_ptr<BasicBlock> new_bb = splitBlock(it->second, it->first, seen);
             current_basic_block->successors.emplace_back(new_bb);
-        } else {
+        } 
+        else if(new_instr->modify_control_flow){
             std::shared_ptr<BasicBlock> new_bb = std::make_shared<BasicBlock>(next_addr);
 
             m_basic_blocks.emplace_back(new_bb);
             current_basic_block->successors.emplace_back(new_bb);
 
+            if(new_instr->is_call)
+                return_stack.push(instr_address + 2 * new_instr->instruction_length);
             explore_address(next_addr, new_bb, seen, return_stack);
         }
-    }
-    else if(new_instr->modify_control_flow){
-        for(uint32_t next_addr : next_addrs){
-            // In case of splits
-            current_basic_block = seen.find(instr_address)->second;
-
-            auto it = seen.find(next_addr);
-            if(it != seen.end()){
-                std::shared_ptr<BasicBlock> new_bb = splitBlock(it->second, it->first, seen);
-                current_basic_block->successors.emplace_back(new_bb);
-            } else {
-                std::shared_ptr<BasicBlock> new_bb = std::make_shared<BasicBlock>(next_addr);
-
-                m_basic_blocks.emplace_back(new_bb);
-                current_basic_block->successors.emplace_back(new_bb);
-
-                if(new_instr->is_call)
-                    return_stack.push(instr_address + 2 * new_instr->instruction_length);
-                explore_address(next_addr, new_bb, seen, return_stack);
-            }
+        else {
+            // Only one address inside
+            explore_address(next_addrs.front(), current_basic_block, seen, return_stack);
         }
-    } 
-    else {
-        // Only one address inside
-        explore_address(next_addrs.front(), current_basic_block, seen, return_stack);
     }
+
 }
 
 
@@ -122,7 +110,7 @@ std::string get_name(uint32_t addr, std::vector<Symbol>& symbols){
 
 void cfg::exportCFGToDOT(const std::string &filename)
 {
-    std::ofstream out(filename + ".dot");
+    std::ofstream out(filename);
     if (!out.is_open())
     {
         std::cerr << "Failed to open file for CFG output.\n";
@@ -160,22 +148,29 @@ void cfg::exportCFGToDOT(const std::string &filename)
 
     out << "}\n";
     out.close();
-    std::cout << "CFG exported to " << filename << ".dot\n";
+    std::cout << "CFG exported to " << filename << "\n";
 }
 
 
-cfg::cfg(ELFFile file, std::vector<Symbol>& symbols)
+cfg::cfg(ELFFile file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble)
     : m_elf_file(file), m_symbols(symbols)
 {
     AddressAssign seen{};
+    std::shared_ptr<BasicBlock> current_bb{};
 
-    std::shared_ptr<BasicBlock> current_bb = std::make_shared<BasicBlock>(file.entry_addr);
-    m_basic_blocks = { current_bb };
+    if(symbols_to_disassemble.empty()){
+        current_bb = std::make_shared<BasicBlock>(file.entry_addr);
+        m_basic_blocks = { current_bb };
 
-    explore_address(file.entry_addr, current_bb, seen, {});
+        explore_address(file.entry_addr, current_bb, seen, {});
+    }
 
     for(const auto& symbol : m_symbols){
         if(symbol.executable && is_func(symbol) && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
+            if(symbols_to_disassemble.empty() 
+            || (!symbols_to_disassemble.empty() 
+                && std::find(symbols_to_disassemble.begin(), symbols_to_disassemble.end(), symbol.name) != symbols_to_disassemble.end()
+            ))
             if(seen.find(symbol.address) == seen.end()){
                 std::cout << symbol.name << " " << (uint16_t)symbol.info << "\n";
 
