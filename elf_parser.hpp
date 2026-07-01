@@ -35,3 +35,4 @@ uint32_t getAddressOffset(ELFFile &elfFile, uint32_t address, bool entrypoint = 
 bool getEntryOffset(ELFFile &elfFile);
 void printSymbolNames(const std::vector<Symbol> &symbols);
 std::vector<Symbol> parseSymbolTable(ELFFile &elfFile);
+bool is_func(Symbol symbol);

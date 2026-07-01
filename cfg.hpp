@@ -30,10 +30,11 @@ class cfg
 private:
     std::vector<std::shared_ptr<BasicBlock>> m_basic_blocks;
     ELFFile m_elf_file;
+    std::vector<Symbol> m_symbols;
 
 public:
-    cfg(ELFFile file, std::vector<Symbol> symbols);
-    void exportCFGToDOT(const std::string &filename);
+    cfg(ELFFile file, std::vector<Symbol>& symbols);
+    void exportCFGToDOT(const std::string& filename);
 
 private:
     std::shared_ptr<BasicBlock> splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr, AddressAssign& seen);

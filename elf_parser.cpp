@@ -137,3 +137,7 @@ void printSymbolNames(const std::vector<Symbol> &symbols)
     }
     std::cout << "-----------------------------\n";
 }
+
+bool is_func(Symbol symbol){
+    return ELF32_ST_TYPE(symbol.info) == STT_FUNC;
+}
