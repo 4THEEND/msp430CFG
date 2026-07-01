@@ -6,7 +6,7 @@
 #include <stack>
 
 #include "Instruction.hpp"
-#include "elf_parser.hpp"
+#include "binary_loader.hpp"
 
 
 struct BasicBlock
@@ -30,11 +30,11 @@ class cfg
 private:
     std::vector<std::shared_ptr<BasicBlock>> m_basic_blocks;
     AddressAssign seen;
-    ELFFile m_elf_file;
+    BinaryLoader* binary_file;
     std::vector<Symbol> m_symbols;
 
 public:
-    cfg(ELFFile file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble);
+    cfg(BinaryLoader* file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble);
     void exportCFGToDOT(const std::string& filename);
 
 private:

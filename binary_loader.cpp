@@ -8,10 +8,10 @@
 #include <elf.h>
 #include <inttypes.h>
 
-#include "elf_parser.hpp"
+#include "binary_loader.hpp"
 
 
-bool loadELF(const std::string &filename, ELFFile &elfFile)
+bool BinaryLoader::loadBinary(const std::string &filename)
 {
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file)
@@ -22,9 +22,9 @@ bool loadELF(const std::string &filename, ELFFile &elfFile)
 
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
-    elfFile.data.resize(size);
+    data.resize(size);
 
-    if (!file.read(reinterpret_cast<char *>(elfFile.data.data()), size))
+    if (!file.read(reinterpret_cast<char *>(data.data()), size))
     {
         std::cerr << "Failed to read ELF file." << std::endl;
         return false;
@@ -33,19 +33,20 @@ bool loadELF(const std::string &filename, ELFFile &elfFile)
     return true;
 }
 
-uint32_t getAddressOffset(ELFFile &elfFile, uint32_t address, bool entrypoint){
-    if (elfFile.data.size() < sizeof(Elf32_Ehdr))
+
+uint32_t ELFFile::getAddressOffset(uint32_t address, bool entrypoint){
+    if (data.size() < sizeof(Elf32_Ehdr))
     {
         std::cerr << "Invalid ELF file." << std::endl;
         return false;
     }
 
-    Elf32_Ehdr *header = reinterpret_cast<Elf32_Ehdr *>(elfFile.data.data());
-    Elf32_Phdr *program_headers = reinterpret_cast<Elf32_Phdr *>(elfFile.data.data() + header->e_phoff);
+    Elf32_Ehdr *header = reinterpret_cast<Elf32_Ehdr *>(data.data());
+    Elf32_Phdr *program_headers = reinterpret_cast<Elf32_Phdr *>(data.data() + header->e_phoff);
 
     if(entrypoint){
         address = header->e_entry;
-        elfFile.entry_addr = address;
+        entry_addr = address;
     }
         
 
@@ -61,28 +62,29 @@ uint32_t getAddressOffset(ELFFile &elfFile, uint32_t address, bool entrypoint){
 }
 
 
-bool getEntryOffset(ELFFile &elfFile)
+bool ELFFile::getEntryOffset()
 {
-    uint32_t result = getAddressOffset(elfFile, 0, true);
+    uint32_t result = getAddressOffset(0, true);
     if(result == -1)
         return false;
 
-    elfFile.entry_offset = result;
+    entry_offset = result;
     return true;
 }
 
-std::vector<Symbol> parseSymbolTable(ELFFile &elfFile)
+
+std::vector<Symbol> ELFFile::parseSymbolTable()
 {
     std::vector<Symbol> symbols;
 
-    if (elfFile.data.size() < sizeof(Elf32_Ehdr))
+    if (data.size() < sizeof(Elf32_Ehdr))
     {
         std::cerr << "Invalid ELF file." << std::endl;
         return symbols;
     }
 
-    Elf32_Ehdr *header = reinterpret_cast<Elf32_Ehdr *>(elfFile.data.data());
-    Elf32_Shdr *section_headers = reinterpret_cast<Elf32_Shdr *>(elfFile.data.data() + header->e_shoff);
+    Elf32_Ehdr *header = reinterpret_cast<Elf32_Ehdr *>(data.data());
+    Elf32_Shdr *section_headers = reinterpret_cast<Elf32_Shdr *>(data.data() + header->e_shoff);
 
     for (int i = 0; i < header->e_shnum; ++i)
     {
@@ -90,11 +92,11 @@ std::vector<Symbol> parseSymbolTable(ELFFile &elfFile)
         if (sh.sh_type != SHT_SYMTAB && sh.sh_type != SHT_DYNSYM)
             continue;
 
-        const Elf32_Sym *symtab = reinterpret_cast<const Elf32_Sym *>(elfFile.data.data() + sh.sh_offset);
+        const Elf32_Sym *symtab = reinterpret_cast<const Elf32_Sym *>(data.data() + sh.sh_offset);
         size_t symbol_count = sh.sh_size / sizeof(Elf32_Sym);
 
         const Elf32_Shdr &strtab_section = section_headers[sh.sh_link];
-        const char *strtab = reinterpret_cast<const char *>(elfFile.data.data() + strtab_section.sh_offset);
+        const char *strtab = reinterpret_cast<const char *>(data.data() + strtab_section.sh_offset);
 
         for (size_t j = 0; j < symbol_count; ++j)
         {
@@ -127,7 +129,8 @@ std::vector<Symbol> parseSymbolTable(ELFFile &elfFile)
     return symbols;
 }
 
-void printSymbolNames(const std::vector<Symbol> &symbols)
+
+void ELFFile::printSymbolNames(const std::vector<Symbol> &symbols)
 {
     std::cout << "\nSymbols:\n";
     std::cout << "-----------------------------\n";
@@ -138,6 +141,21 @@ void printSymbolNames(const std::vector<Symbol> &symbols)
     std::cout << "-----------------------------\n";
 }
 
-bool is_func(Symbol symbol){
+bool ELFFile::is_func(Symbol symbol){
     return ELF32_ST_TYPE(symbol.info) == STT_FUNC;
+}
+
+
+uint32_t DumpFile::getAddressOffset(uint32_t address, bool entrypoint = false){
+    return address - general_offset;
+}
+
+
+bool DumpFile::getEntryOffset(){
+    uint32_t result = getAddressOffset(0, true);
+    if(result == -1)
+        return false;
+
+    entry_offset = result;
+    return true;
 }

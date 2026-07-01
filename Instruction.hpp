@@ -1,6 +1,6 @@
 #pragma once
 
-#include "elf_parser.hpp"
+#include "binary_loader.hpp"
 
 #include <inttypes.h>
 #include <iostream>
@@ -113,7 +113,7 @@ public:
     
 public:
     virtual std::string getString() = 0;
-    virtual bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) = 0;
+    virtual bool consume(uint32_t instruction_address, BinaryLoader* binary_file) = 0;
     virtual int get_instruction_timing() = 0;
     virtual std::array<uint16_t, 3> get_instruction() = 0;
 
@@ -123,7 +123,7 @@ public:
     };
 
 protected:
-    uint16_t read_memory(uint32_t address, uint8_t* memory, ELFFile& file);
+    uint16_t read_memory(uint32_t address, BinaryLoader* binary_file);
     
     bool should_get_complement(AddressingMode Am);
     AddressingMode parse_mode(uint8_t Am, uint8_t source);
@@ -156,7 +156,7 @@ public:
         uint16_t sc = 0, uint16_t dc = 0
     ) : opcode(op), As(as), Ad(ad), source(src), destination(dst), source_complement(sc), destination_complement(dc) {address = addr;};
 
-    bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
+    bool consume(uint32_t instruction_address, BinaryLoader* binary_file) override;
     int get_instruction_timing() override;
     std::array<uint16_t, 3> get_instruction() override;
 
@@ -287,7 +287,7 @@ protected:
     uint16_t source_complement;
 
 public:
-    bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
+    bool consume(uint32_t instruction_address, BinaryLoader* binary_file) override;
     int get_instruction_timing() override;
     std::array<uint16_t, 3> get_instruction() override;
 
@@ -377,7 +377,7 @@ public:
         : condition(cond), pc_offset(offset >> 1 - 1)
     {address = addr;};
 
-    bool consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) override;
+    bool consume(uint32_t instruction_address, BinaryLoader* binary_file) override;
     int get_instruction_timing() override;
     std::array<uint16_t, 3> get_instruction() override;
 
@@ -467,10 +467,10 @@ public:
         return instruction_types.size();
     }
 
-    std::shared_ptr<Instruction> Build(uint32_t instruction_address, uint8_t* memory, ELFFile& file) const {
+    std::shared_ptr<Instruction> Build(uint32_t instruction_address, BinaryLoader* binary_file) const {
         for(const Builder& b: instruction_types){
             std::shared_ptr<Instruction> inst = b();
-            if(inst->consume(instruction_address, memory, file)){
+            if(inst->consume(instruction_address, binary_file)){
                 return inst;
             }
         }

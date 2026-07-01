@@ -50,7 +50,7 @@ void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> cu
     seen.emplace(instr_address, current_basic_block);
     std::cout << "Going to explore "  << std::hex << instr_address << "\n";
 
-    std::shared_ptr<Instruction> new_instr = GetInstructionFactory().Build(instr_address, m_elf_file.data.data(), m_elf_file);
+    std::shared_ptr<Instruction> new_instr = GetInstructionFactory().Build(instr_address, binary_file);
     if(new_instr == nullptr){
         std::cerr << "Bad instruction!!\n";
         return;
@@ -149,20 +149,21 @@ void cfg::exportCFGToDOT(const std::string &filename)
 }
 
 
-cfg::cfg(ELFFile file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble)
-    : m_elf_file(file), m_symbols(symbols), seen()
+cfg::cfg(BinaryLoader* file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble)
+    : binary_file(file), m_symbols(symbols), seen()
 {
     std::shared_ptr<BasicBlock> current_bb{};
 
     if(symbols_to_disassemble.empty()){
-        current_bb = std::make_shared<BasicBlock>(file.entry_addr);
+        current_bb = std::make_shared<BasicBlock>(file->entry_addr);
         m_basic_blocks = { current_bb };
 
-        explore_address(file.entry_addr, current_bb, {});
+        explore_address(file->entry_addr, current_bb, {});
     }
 
-    for(const auto& symbol : m_symbols){
-        if(symbol.executable && is_func(symbol) && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
+    if(binary_file->support_symbols){
+        for(const auto& symbol : m_symbols){
+        if(symbol.executable && binary_file->is_func(symbol) && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
             if(symbols_to_disassemble.empty() 
             || (!symbols_to_disassemble.empty() 
                 && std::find(symbols_to_disassemble.begin(), symbols_to_disassemble.end(), symbol.name) != symbols_to_disassemble.end()
@@ -177,14 +178,5 @@ cfg::cfg(ELFFile file, std::vector<Symbol>& symbols, std::vector<std::string>& s
             }
         }
     }
-
-    /*
-    while(!symbols.empty()){
-        Symbol actual_symbol = symbols.top();
-        symbols.pop();
-
-        if(actual_symbol.executable){
-            explore_address(actual_symbol.address, current_bb, seen);
-        }
-    } */
+    }
 }

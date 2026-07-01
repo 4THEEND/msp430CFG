@@ -3,7 +3,7 @@
 
 #include <argparse/argparse.hpp>
 
-#include "elf_parser.hpp"
+#include "binary_loader.hpp"
 #include "cfg.hpp"
 
 
@@ -33,19 +33,17 @@ int main(int argc, char** argv){
     ELFFile my_file{};
     std::string elf_name{ program.get("binary") };
 
-    if(!loadELF(elf_name, my_file))
+    if(!my_file.loadBinary(elf_name))
         return 1;
 
-    if(!getEntryOffset(my_file))
+    if(!my_file.getEntryOffset())
         return 1;
 
-    std::vector<Symbol> symbols{ parseSymbolTable(my_file) };
+    std::vector<Symbol> symbols{ my_file.parseSymbolTable() };
 
     auto symbols_to_start = program.get<std::vector<std::string>>("-s");
-    for(const auto& symbol : symbols_to_start)
-        std::cout << symbol << "\n";
 
-    cfg binary_cfg{ my_file, symbols, symbols_to_start };
+    cfg binary_cfg{ &my_file, symbols, symbols_to_start };
     binary_cfg.exportCFGToDOT(program.get("-o"));
 
     return 0;

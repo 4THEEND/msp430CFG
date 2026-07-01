@@ -1,5 +1,5 @@
 #include "Instruction.hpp"
-#include "elf_parser.hpp"
+#include "binary_loader.hpp"
 
 #include <iomanip>
 
@@ -43,11 +43,11 @@ std::string Instruction::decorate_reg(uint8_t reg, AddressingMode Am, uint16_t e
 }
 
 
-uint16_t Instruction::read_memory(uint32_t address, uint8_t* memory, ELFFile& file){
-    uint32_t offset = getAddressOffset(file, address);
-    uint16_t content = memory[offset + 1];
+uint16_t Instruction::read_memory(uint32_t address, BinaryLoader* binary_file){
+    uint32_t offset = binary_file->getAddressOffset(address);
+    uint16_t content = binary_file->data.data()[offset + 1];
     content <<= 8;
-    content += memory[offset];
+    content += binary_file->data.data()[offset];
 
     return content;
 }
@@ -119,10 +119,10 @@ bool Instruction::should_get_complement(AddressingMode Am){
 }
 
 
-bool Format1Instruction::consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file){
+bool Format1Instruction::consume(uint32_t instruction_address, BinaryLoader* binary_file){
     instruction_length = 1;
     address = instruction_address;
-    uint16_t instruction_header = read_memory(instruction_address, memory, file);
+    uint16_t instruction_header = read_memory(instruction_address, binary_file);
     if(instruction_header >> 12 != opcode)
         return false;
     
@@ -130,14 +130,14 @@ bool Format1Instruction::consume(uint32_t instruction_address, uint8_t* memory, 
     As = parse_mode((instruction_header >> 4) & 0b11, source);
     if(should_get_complement(As)){
         instruction_length++;
-        source_complement = read_memory(instruction_address + 2, memory, file);
+        source_complement = read_memory(instruction_address + 2, binary_file);
     }
 
 
     destination = instruction_header & 0b1111;
     Ad = parse_mode((instruction_header >> 7) & 1, destination);
     if(should_get_complement(Ad)){
-        destination_complement = read_memory(instruction_address + 2 * instruction_length, memory, file);
+        destination_complement = read_memory(instruction_address + 2 * instruction_length, binary_file);
         instruction_length++;
     }
 
@@ -244,8 +244,8 @@ std::string Format1Instruction::abstractGetString(std::string instruction_name){
 }
 
 
-bool Format2Instruction::consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file) {
-    uint16_t instruction_header = read_memory(instruction_address, memory, file);
+bool Format2Instruction::consume(uint32_t instruction_address, BinaryLoader* binary_file) {
+    uint16_t instruction_header = read_memory(instruction_address, binary_file);
     instruction_length = 1;
     address = instruction_address;
     modify_control_flow = (opcode == CALL || opcode == RETI ? true : false);
@@ -256,7 +256,7 @@ bool Format2Instruction::consume(uint32_t instruction_address, uint8_t* memory, 
     As = parse_mode((instruction_header >> 4) & 0b11, source);
     if(should_get_complement(As)){
         instruction_length++;
-        source_complement = read_memory(instruction_address + 2, memory, file);
+        source_complement = read_memory(instruction_address + 2, binary_file);
     }
 
     byte_instruction = (instruction_header >> 6) & 1;
@@ -364,8 +364,8 @@ int16_t sign_extend(int16_t addr){
 }
 
 
-bool Format3Instruction::consume(uint32_t instruction_address, uint8_t* memory, ELFFile& file){
-    uint16_t instruction_header = read_memory(instruction_address, memory, file);
+bool Format3Instruction::consume(uint32_t instruction_address, BinaryLoader* binary_file){
+    uint16_t instruction_header = read_memory(instruction_address, binary_file);
     instruction_length = 1;
     address = instruction_address;
     modify_control_flow = true;
