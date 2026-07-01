@@ -35,5 +35,5 @@ add_custom_target(
 add_custom_target(
    cfg
    DEPENDS ipe-disasm
-   COMMAND ./ipe-disasm ../ipe-main.elf -s ipe_malloc ipe_free && dot -Tpng ./cfg.dot -o ./cfg.PNG
+   COMMAND ./ipe-disasm ../ipe-main.elf -s ipe_malloc && dot -Tpng ./cfg.dot -o ./cfg.PNG
 )

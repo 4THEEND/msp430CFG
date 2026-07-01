@@ -19,7 +19,7 @@ int main(int argc, char** argv){
 
     program.add_argument("-s", "--symbols")
         .help("Where we want to start our recursive disassembly")
-        .nargs(2);
+        .nargs(0, -1);
 
     try {
         program.parse_args(argc, argv);
