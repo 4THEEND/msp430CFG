@@ -30,12 +30,14 @@ class cfg
 private:
     std::vector<std::shared_ptr<BasicBlock>> m_basic_blocks;
     AddressAssign seen;
-    BinaryLoader* binary_file;
+    std::shared_ptr<BinaryLoader> binary_file;
     std::vector<Symbol> m_symbols;
 
 public:
-    cfg(BinaryLoader* file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble);
+    cfg(): binary_file(nullptr) {};
+    cfg(std::shared_ptr<BinaryLoader> file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble);
     void exportCFGToDOT(const std::string& filename);
+    void disassemble(std::vector<std::string>& symbols_to_disassemble);
 
 private:
     std::shared_ptr<BasicBlock> splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr);

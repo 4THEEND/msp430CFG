@@ -43,7 +43,7 @@ std::string Instruction::decorate_reg(uint8_t reg, AddressingMode Am, uint16_t e
 }
 
 
-uint16_t Instruction::read_memory(uint32_t address, BinaryLoader* binary_file){
+uint16_t Instruction::read_memory(uint32_t address, std::shared_ptr<BinaryLoader> binary_file){
     uint32_t offset = binary_file->getAddressOffset(address);
     uint16_t content = binary_file->data.data()[offset + 1];
     content <<= 8;
@@ -119,7 +119,7 @@ bool Instruction::should_get_complement(AddressingMode Am){
 }
 
 
-bool Format1Instruction::consume(uint32_t instruction_address, BinaryLoader* binary_file){
+bool Format1Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file){
     instruction_length = 1;
     address = instruction_address;
     uint16_t instruction_header = read_memory(instruction_address, binary_file);
@@ -244,7 +244,7 @@ std::string Format1Instruction::abstractGetString(std::string instruction_name){
 }
 
 
-bool Format2Instruction::consume(uint32_t instruction_address, BinaryLoader* binary_file) {
+bool Format2Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file) {
     uint16_t instruction_header = read_memory(instruction_address, binary_file);
     instruction_length = 1;
     address = instruction_address;
@@ -364,7 +364,7 @@ int16_t sign_extend(int16_t addr){
 }
 
 
-bool Format3Instruction::consume(uint32_t instruction_address, BinaryLoader* binary_file){
+bool Format3Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file){
     uint16_t instruction_header = read_memory(instruction_address, binary_file);
     instruction_length = 1;
     address = instruction_address;

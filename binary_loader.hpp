@@ -27,15 +27,17 @@ struct BinaryLoader {
     uint32_t entry_offset;
 
     std::vector<uint8_t> data;
+    std::vector<Symbol> symbols_table;
 
     bool support_symbols = false;
 
+    BinaryLoader() : symbols_table() {};
     bool loadBinary(const std::string &filename);
 
     virtual uint32_t getAddressOffset(uint32_t address, bool entrypoint = false) = 0;
     virtual bool getEntryOffset() = 0;
 
-    virtual std::vector<Symbol> parseSymbolTable() { return {}; };
+    virtual void parseSymbolTable() {};
     virtual void printSymbolNames(const std::vector<Symbol> &symbols) {};
     virtual bool is_func(Symbol symbol){ return false; };
 };
@@ -50,7 +52,7 @@ struct ELFFile : public BinaryLoader {
     uint32_t getAddressOffset(uint32_t address, bool entrypoint) override;
     bool getEntryOffset() override;
 
-    std::vector<Symbol> parseSymbolTable() override;
+    void parseSymbolTable() override;
     void printSymbolNames(const std::vector<Symbol> &symbols) override;
     bool is_func(Symbol symbol) override;
 };
@@ -59,9 +61,9 @@ struct ELFFile : public BinaryLoader {
 struct DumpFile : public BinaryLoader {
     uint32_t general_offset;
 
-    DumpFile(uint32_t offs)
+    DumpFile(uint32_t entry = 0, uint32_t offs = 0)
         : general_offset(offs)
-     {};
+     {entry_addr = entry;};
 
     uint32_t getAddressOffset(uint32_t address, bool entrypoint) override;
     bool getEntryOffset() override;

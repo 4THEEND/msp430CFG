@@ -16,7 +16,7 @@ bool BinaryLoader::loadBinary(const std::string &filename)
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file)
     {
-        std::cerr << "Failed to open ELF file: " << filename << "\n";
+        std::cerr << "Failed to open file: " << filename << "\n";
         return false;
     }
 
@@ -73,14 +73,14 @@ bool ELFFile::getEntryOffset()
 }
 
 
-std::vector<Symbol> ELFFile::parseSymbolTable()
+void ELFFile::parseSymbolTable()
 {
     std::vector<Symbol> symbols;
 
     if (data.size() < sizeof(Elf32_Ehdr))
     {
         std::cerr << "Invalid ELF file." << std::endl;
-        return symbols;
+        return;
     }
 
     Elf32_Ehdr *header = reinterpret_cast<Elf32_Ehdr *>(data.data());
@@ -126,7 +126,7 @@ std::vector<Symbol> ELFFile::parseSymbolTable()
             symbols.push_back(s);
         }
     }
-    return symbols;
+    symbols_table = symbols;
 }
 
 

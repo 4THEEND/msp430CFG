@@ -149,34 +149,43 @@ void cfg::exportCFGToDOT(const std::string &filename)
 }
 
 
-cfg::cfg(BinaryLoader* file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble)
-    : binary_file(file), m_symbols(symbols), seen()
-{
-    std::shared_ptr<BasicBlock> current_bb{};
+void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
+    if(binary_file == nullptr){
+        seen = {};
+        std::shared_ptr<BasicBlock> current_bb{};
 
-    if(symbols_to_disassemble.empty()){
-        current_bb = std::make_shared<BasicBlock>(file->entry_addr);
-        m_basic_blocks = { current_bb };
+        if(symbols_to_disassemble.empty()){
+            current_bb = std::make_shared<BasicBlock>(binary_file->entry_addr);
+            m_basic_blocks = { current_bb };
 
-        explore_address(file->entry_addr, current_bb, {});
-    }
+            explore_address(binary_file->entry_addr, current_bb, {});
+        }
 
-    if(binary_file->support_symbols){
-        for(const auto& symbol : m_symbols){
-        if(symbol.executable && binary_file->is_func(symbol) && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
-            if(symbols_to_disassemble.empty() 
-            || (!symbols_to_disassemble.empty() 
-                && std::find(symbols_to_disassemble.begin(), symbols_to_disassemble.end(), symbol.name) != symbols_to_disassemble.end()
-            ))
-            if(seen.find(symbol.address) == seen.end()){
-                std::cout << symbol.name << " " << (uint16_t)symbol.info << "\n";
+        if(binary_file->support_symbols){
+            for(const auto& symbol : m_symbols){
+                if(symbol.executable && binary_file->is_func(symbol) && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
+                    if(symbols_to_disassemble.empty() 
+                    || (!symbols_to_disassemble.empty() 
+                    && std::find(symbols_to_disassemble.begin(), symbols_to_disassemble.end(), symbol.name) != symbols_to_disassemble.end()
+                    )) {
+                        if(seen.find(symbol.address) == seen.end()){
+                            std::cout << symbol.name << " " << (uint16_t)symbol.info << "\n";
 
-                current_bb = std::make_shared<BasicBlock>(symbol.address);
-                m_basic_blocks.emplace_back(current_bb);
+                            current_bb = std::make_shared<BasicBlock>(symbol.address);
+                            m_basic_blocks.emplace_back(current_bb);
 
-                explore_address(symbol.address, current_bb, {});
+                            explore_address(symbol.address, current_bb, {});
+                        }
+                    }
+                }
             }
         }
     }
-    }
+}
+
+
+cfg::cfg(std::shared_ptr<BinaryLoader> file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble)
+    : binary_file(file), m_symbols(symbols)
+{
+    disassemble(symbols_to_disassemble);
 }
