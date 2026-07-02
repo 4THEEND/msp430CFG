@@ -81,7 +81,7 @@ void load_callback(int argc, char** argv, Files& files, std::string& active_file
 
     my_file->parseSymbolTable();
 
-    files[file_name] = {my_file, cfg() };
+    files.insert({file_name, std::make_tuple(my_file, cfg(my_file))});
     active_file = file_name;
 
     std::cout << "File sucessfully loaded and active!!\n";
@@ -118,6 +118,47 @@ void select_callback(int argc, char** argv, Files& files, std::string& active_fi
 }
 
 
+void disassemble_callback(int argc, char** argv, Files& files, std::string& active_file){
+    argparse::ArgumentParser program("disassemble");
+
+    program.add_argument("-s", "--symbols")
+        .help("Symbols where we want to start our recursive disassembly")
+        .nargs(0, -1);
+
+    parse_args(program, argc, argv);
+
+    auto symbols_to_start = program.get<std::vector<std::string>>("-s");
+    auto it = files.find(active_file);
+
+    if(it == files.end()){
+        std::cout << "Unable to select this file\n";
+        return;
+    }
+
+    std::get<cfg>(it->second).disassemble(symbols_to_start);
+    std::cout << "Successfuly disassembled the binary!\n";
+}
+
+
+void export_callback(int argc, char** argv, Files& files, std::string& active_file){
+    argparse::ArgumentParser program("export");
+
+    program.add_argument("output_name")
+        .help("Name of the output dot file")
+        .default_value("cfg.dot");
+
+    parse_args(program, argc, argv);
+
+    auto it = files.find(active_file);
+    if(it == files.end()){
+        std::cout << "Unable to select this file\n";
+        return;
+    }
+
+    std::get<cfg>(it->second).exportCFGToDOT(program.get("output_name"));
+}
+
+
 int main(int argc, char** argv){
     std::string param{};
     std::string active_file{};
@@ -127,6 +168,8 @@ int main(int argc, char** argv){
         {"load", load_callback},
         {"show", show_callback},
         {"select", select_callback},
+        {"disassemble", disassemble_callback},
+        {"export", export_callback},
     };
 
     while(true){
@@ -154,20 +197,3 @@ int main(int argc, char** argv){
 
     return 0;
 }
-
-/*
-    program.add_argument("-o")
-        .help("Name of the output .dot file")
-        .default_value("cfg.dot");
-
-    program.add_argument("-s", "--symbols")
-        .help("Where we want to start our recursive disassembly")
-        .nargs(0, -1);
-*/
-
-/*
-    auto symbols_to_start = program.get<std::vector<std::string>>("-s");
-
-    cfg binary_cfg{ my_file, symbols, symbols_to_start };
-    binary_cfg.exportCFGToDOT(program.get("-o")); 
-*/

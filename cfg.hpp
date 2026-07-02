@@ -31,11 +31,9 @@ private:
     std::vector<std::shared_ptr<BasicBlock>> m_basic_blocks;
     AddressAssign seen;
     std::shared_ptr<BinaryLoader> binary_file;
-    std::vector<Symbol> m_symbols;
 
 public:
-    cfg(): binary_file(nullptr) {};
-    cfg(std::shared_ptr<BinaryLoader> file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble);
+    cfg(std::shared_ptr<BinaryLoader> file) : binary_file(file){};
     void exportCFGToDOT(const std::string& filename);
     void disassemble(std::vector<std::string>& symbols_to_disassemble);
 

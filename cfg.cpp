@@ -122,7 +122,7 @@ void cfg::exportCFGToDOT(const std::string &filename)
         std::stringstream label;
         //construct a label with all instructions along with their address
 
-        std::string func_name = get_name(block->first_address, m_symbols);
+        std::string func_name = get_name(block->first_address, binary_file->symbols_table);
         if(func_name != "")
             label << func_name << ":\\l"; 
 
@@ -150,8 +150,10 @@ void cfg::exportCFGToDOT(const std::string &filename)
 
 
 void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
-    if(binary_file == nullptr){
+    if(binary_file != nullptr){
         seen = {};
+        m_basic_blocks = {};
+
         std::shared_ptr<BasicBlock> current_bb{};
 
         if(symbols_to_disassemble.empty()){
@@ -162,7 +164,7 @@ void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
         }
 
         if(binary_file->support_symbols){
-            for(const auto& symbol : m_symbols){
+            for(const auto& symbol : binary_file->symbols_table){
                 if(symbol.executable && binary_file->is_func(symbol) && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
                     if(symbols_to_disassemble.empty() 
                     || (!symbols_to_disassemble.empty() 
@@ -181,11 +183,4 @@ void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
             }
         }
     }
-}
-
-
-cfg::cfg(std::shared_ptr<BinaryLoader> file, std::vector<Symbol>& symbols, std::vector<std::string>& symbols_to_disassemble)
-    : binary_file(file), m_symbols(symbols)
-{
-    disassemble(symbols_to_disassemble);
 }
