@@ -211,7 +211,6 @@ void cfg::add_edge(uint32_t source, uint32_t destination){
 
 
 std::vector<Path> cfg::walkthrough_bb(Timings& timings, std::shared_ptr<BasicBlock> bb, Path path, int depth){
-    std::cout << "new bb at depth: " << depth << "\n";
     for(std::shared_ptr<Instruction> instruction : bb->instructions){
         if(path.size() >= timings.trace_length()){
             std::cout << "Went through the entire trace!\n";
@@ -242,6 +241,13 @@ std::vector<Path> cfg::walkthrough_bb(Timings& timings, std::shared_ptr<BasicBlo
 }
 
 
+void printPath(const Path& path){
+    for(auto instruction : path){
+        std::cout << std::hex << instruction->address << std::dec << " " << *instruction << "\n";
+    }
+}
+
+
 void cfg::walkthrough(uint32_t begining_addr, Timings& timings){
     auto it_source = seen.find(begining_addr);
     if(it_source == seen.end()){
@@ -253,5 +259,9 @@ void cfg::walkthrough(uint32_t begining_addr, Timings& timings){
         return;
     }
 
-    walkthrough_bb(timings, it_source->second, {});
+    std::vector<Path> paths{ walkthrough_bb(timings, it_source->second, {}) };
+    for(const Path& path : paths){
+        std::cout << "PATHHHHHHHH\n";
+        printPath(path);
+    }
 }

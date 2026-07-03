@@ -170,11 +170,11 @@ void add_edge_callback(int argc, char** argv, Files& files, std::string& active_
 
     program.add_argument("source")
         .help("Source address")
-        .scan<'u', unsigned int>();
+        .scan<'x', unsigned int>();
 
     program.add_argument("destination")
         .help("Destination address")
-        .scan<'u', unsigned int>();
+        .scan<'x', unsigned int>();
 
     if(!parse_args(program, argc, argv))
         return;
@@ -213,7 +213,7 @@ void walkthrough_callback(int argc, char** argv, Files& files, std::string& acti
 
     program.add_argument("source")
         .help("Begining address for the walkthrough (must be at the start of a BB)")
-        .scan<'u', unsigned int>();
+        .scan<'x', unsigned int>();
 
     if(!parse_args(program, argc, argv))
         return;
