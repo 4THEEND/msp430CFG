@@ -4,54 +4,14 @@
 #include <map>
 #include <memory>
 #include <tuple>
+#include <fstream>
 
 #include <argparse/argparse.hpp>
 
 #include "binary_loader.hpp"
 #include "cfg.hpp"
+#include "Timings.hpp"
 
-
-std::vector<int> parseCSV(std::istream& str)
-{
-    std::vector<int> result{};
-    std::string line{};
-    std::getline(str, line);
-
-    std::stringstream lineStream(line);
-    std::string cell;
-
-    while(std::getline(lineStream,cell, ','))
-    {
-        result.push_back(std::stoi(cell));
-    }
-    return result;
-}
-
-
-struct Timings
-{
-    std::vector<int> trace;
-    int t_offset;
-
-    Timings(): trace(), t_offset() {};
-
-    inline void reset_offset(){ t_offset = 0; };
-    void loadTrace(std::string filename);
-};
-
-
-void Timings::loadTrace(std::string filename){
-    std::ifstream file(filename);
-    if (!file)
-    {
-        std::cerr << "Failed to open file: " << filename << "\n";
-        return;
-    }
-    trace = parseCSV(file);
-    for(int i = 0; i < 10; i++)
-        std::cout << trace[i] << "\n";
-    std::cout << "Sucessfully imported the csv trace! (length: " << trace.size() << ")\n";
-}
 
 using BinaryContext = std::tuple<std::shared_ptr<BinaryLoader>, cfg, Timings>;
 using Files = std::map<std::string, BinaryContext>;
@@ -69,16 +29,16 @@ std::vector<std::string> split(std::string str) {
 }
  
 
-void parse_args(argparse::ArgumentParser& program, int argc, char** argv){
+bool parse_args(argparse::ArgumentParser& program, int argc, char** argv){
     try {
         program.parse_args(argc, argv);
     }
     catch (const std::exception& err) {
         std::cerr << err.what() << std::endl;
         std::cerr << program;
-        return;
+        return false;
     }
-
+    return true;
 }
 
 
@@ -103,7 +63,8 @@ void load_callback(int argc, char** argv, Files& files, std::string& active_file
         .scan<'u', unsigned int>()
         .default_value(0);
 
-    parse_args(program, argc, argv);
+    if(!parse_args(program, argc, argv))
+        return;
 
     std::shared_ptr<BinaryLoader> my_file{};
     
@@ -148,7 +109,8 @@ void select_callback(int argc, char** argv, Files& files, std::string& active_fi
     program.add_argument("binary")
         .help("Binary to select");
 
-    parse_args(program, argc, argv);
+    if(!parse_args(program, argc, argv))
+        return;
 
 
     if(files.find(program.get("binary")) != files.end()){
@@ -161,13 +123,14 @@ void select_callback(int argc, char** argv, Files& files, std::string& active_fi
 
 
 void disassemble_callback(int argc, char** argv, Files& files, std::string& active_file){
-    argparse::ArgumentParser program("disassemble");
+    argparse::ArgumentParser program("disasm");
 
     program.add_argument("-s", "--symbols")
         .help("Symbols where we want to start our recursive disassembly")
         .nargs(0, -1);
 
-    parse_args(program, argc, argv);
+    if(!parse_args(program, argc, argv))
+        return;
 
     auto symbols_to_start = program.get<std::vector<std::string>>("-s");
     auto it = files.find(active_file);
@@ -189,7 +152,8 @@ void export_callback(int argc, char** argv, Files& files, std::string& active_fi
         .help("Name of the output dot file")
         .default_value("cfg.dot");
 
-    parse_args(program, argc, argv);
+    if(!parse_args(program, argc, argv))
+        return;
 
     auto it = files.find(active_file);
     if(it == files.end()){
@@ -212,7 +176,8 @@ void add_edge_callback(int argc, char** argv, Files& files, std::string& active_
         .help("Destination address")
         .scan<'u', unsigned int>();
 
-    parse_args(program, argc, argv);
+    if(!parse_args(program, argc, argv))
+        return;
 
     auto it = files.find(active_file);
     if(it == files.end()){
@@ -230,7 +195,8 @@ void import_callback(int argc, char** argv, Files& files, std::string& active_fi
     program.add_argument("csv")
         .help("CSV of instruction timings to be imported");
 
-    parse_args(program, argc, argv);
+    if(!parse_args(program, argc, argv))
+        return;
 
     auto it = files.find(active_file);
     if(it == files.end()){
@@ -239,6 +205,26 @@ void import_callback(int argc, char** argv, Files& files, std::string& active_fi
     }
 
     std::get<Timings>(it->second).loadTrace(program.get("csv"));
+}
+
+
+void walkthrough_callback(int argc, char** argv, Files& files, std::string& active_file){
+    argparse::ArgumentParser program("walkthrough");
+
+    program.add_argument("source")
+        .help("Begining address for the walkthrough (must be at the start of a BB)")
+        .scan<'u', unsigned int>();
+
+    if(!parse_args(program, argc, argv))
+        return;
+
+    auto it = files.find(active_file);
+    if(it == files.end()){
+        std::cout << "Unable to select this file\n";
+        return;
+    }
+
+    std::get<cfg>(it->second).walkthrough(program.get<unsigned int>("source"), std::get<Timings>(it->second));
 }
 
 
@@ -252,10 +238,11 @@ int main(int argc, char** argv){
         {"load", load_callback},
         {"show", show_callback},
         {"select", select_callback},
-        {"disassemble", disassemble_callback},
+        {"disasm", disassemble_callback},
         {"export", export_callback},
         {"add-edge", add_edge_callback},
         {"import", import_callback},
+        {"walkthrough", walkthrough_callback},
     };
 
     while(true){
@@ -267,6 +254,11 @@ int main(int argc, char** argv){
 
         if(params[0] == "exit"){
             break;
+        } 
+        else if(params[0] == "help"){
+            std::cout << "Commands avaiable:\n";
+            for(const auto& [command, f] : commands)
+                std::cout << "-" << command << "\n";
         }
         else if(it != commands.end()){
             std::vector<char*> cstrings;

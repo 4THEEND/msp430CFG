@@ -5,7 +5,7 @@
 
 std::string uint16_to_hex_string(uint16_t n){
     std::stringstream stream;
-    stream << "0x" << std::hex << n;
+    stream << "0x" << std::hex << n << std::dec;
     return stream.str();
 }
 

@@ -6,7 +6,7 @@
 
 
 std::shared_ptr<BasicBlock> cfg::splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr){
-    std::cout << "Splitting at " << std::hex << addr << "\n";
+    // std::cout << "Splitting at " << std::hex << addr << std::dec << "\n";
     if(addr == current_block->first_address)
         return current_block;
 
@@ -43,12 +43,12 @@ std::shared_ptr<BasicBlock> cfg::splitBlock(std::shared_ptr<BasicBlock> current_
 
 void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack){
     if(seen.find(instr_address) != seen.end()){
-        std::cout << "Already seen instruction " << std::hex << instr_address << "\n";
+        //std::cout << "Already seen instruction " << std::hex << instr_address << std::dec << "\n";
         return;
     }
 
     seen.emplace(instr_address, current_basic_block);
-    std::cout << "Going to explore "  << std::hex << instr_address << "\n";
+    //std::cout << "Going to explore "  << std::hex << instr_address << std::dec << "\n";
 
     std::shared_ptr<Instruction> new_instr = GetInstructionFactory().Build(instr_address, binary_file);
     if(new_instr == nullptr){
@@ -56,7 +56,7 @@ void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> cu
         return;
     }
 
-    std::cout << (*new_instr) << "\n";
+    //std::cout << (*new_instr) << "\n";
     current_basic_block->addInstruction(new_instr);
 
     std::vector<uint32_t> next_addrs = new_instr->next_addrs;
@@ -131,7 +131,7 @@ void cfg::exportCFGToDOT(const std::string &filename)
             label << "0x" << std::hex << instr->address << ": " << *instr << "\\l"; 
         }
         // construct a node along with the label
-        out << "  \"" << std::hex << block->first_address << "\" [label=\"" << label.str() << "\"];\n"; 
+        out << "  \"" << std::hex << block->first_address << std::dec << "\" [label=\"" << label.str() << "\"];\n"; 
     }
 
     // construct edges between block and its successors
@@ -139,7 +139,7 @@ void cfg::exportCFGToDOT(const std::string &filename)
     {
         for (auto succ : block->successors)
         {
-            out << "  \"" << std::hex << block->first_address << "\" -> \"" << std::hex << succ->first_address << "\";\n"; 
+            out << "  \"" << std::hex << block->first_address << std::dec << "\" -> \"" << std::hex << succ->first_address << std::dec << "\";\n"; 
         }
     }
 
@@ -171,7 +171,7 @@ void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
                     && std::find(symbols_to_disassemble.begin(), symbols_to_disassemble.end(), symbol.name) != symbols_to_disassemble.end()
                     )) {
                         if(seen.find(symbol.address) == seen.end()){
-                            std::cout << symbol.name << " " << (uint16_t)symbol.info << "\n";
+                            // std::cout << symbol.name << " " << (uint16_t)symbol.info << "\n";
 
                             current_bb = std::make_shared<BasicBlock>(symbol.address);
                             m_basic_blocks.emplace_back(current_bb);
@@ -189,13 +189,13 @@ void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
 void cfg::add_edge(uint32_t source, uint32_t destination){
     auto it_source = seen.find(source);
     if(it_source == seen.end()){
-        std::cerr << "Unable to find the BasicBlock containing " << std::hex << source << "\n";
+        std::cerr << "Unable to find the BasicBlock containing " << std::hex << source << std::dec << "\n";
         return;
     }
 
     auto it_destination = seen.find(destination);
     if(it_destination == seen.end()){
-        std::cerr << "Unable to find the BasicBlock containing " << std::hex << destination << "\n";
+        std::cerr << "Unable to find the BasicBlock containing " << std::hex << destination << std::dec << "\n";
         return;
     }
 
@@ -210,6 +210,48 @@ void cfg::add_edge(uint32_t source, uint32_t destination){
 }
 
 
-void walkthrough(uint32_t begining_addr, std::vector<int> timings, int t_offset = 0){
+std::vector<Path> cfg::walkthrough_bb(Timings& timings, std::shared_ptr<BasicBlock> bb, Path path, int depth){
+    std::cout << "new bb at depth: " << depth << "\n";
+    for(std::shared_ptr<Instruction> instruction : bb->instructions){
+        if(path.size() >= timings.trace_length()){
+            std::cout << "Went through the entire trace!\n";
+            return { path };
+        }
+        if(timings[path.size()] == -1 || instruction->get_instruction_timing() == timings[path.size()])
+            path.push_back(instruction);
+        else {
+            std::cout << "Dropping " << std::hex << instruction->address << std::dec << "\n";
+            return {};
+        }
+    }
 
+    if(bb->successors.size() == 0){
+        std::cout << "No successors to BasicBlock at address " << std::hex << bb->first_address << std::dec << "\n";
+        std::cout << "You should maybe add new transitions to the CFG!\n";
+
+        return { path };
+    }
+
+    std::vector<Path> new_paths{};
+    for(std::shared_ptr<BasicBlock> next_bb : bb->successors){
+        std::vector<Path> p = walkthrough_bb(timings, next_bb, path, depth + 1);
+        new_paths.insert(new_paths.end(), p.begin(), p.end());
+    }
+
+    return new_paths;
+}
+
+
+void cfg::walkthrough(uint32_t begining_addr, Timings& timings){
+    auto it_source = seen.find(begining_addr);
+    if(it_source == seen.end()){
+        std::cout << "Unable to find the BasicBlock containing " << std::hex << begining_addr << std::dec << "\n";
+        return;
+    }
+    else if(it_source->second->first_address != begining_addr){
+        std::cout << "We must begin at the begining of a BasicBlock\n";
+        return;
+    }
+
+    walkthrough_bb(timings, it_source->second, {});
 }
