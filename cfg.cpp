@@ -184,3 +184,32 @@ void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
         }
     }
 }
+
+
+void cfg::add_edge(uint32_t source, uint32_t destination){
+    auto it_source = seen.find(source);
+    if(it_source == seen.end()){
+        std::cerr << "Unable to find the BasicBlock containing " << std::hex << source << "\n";
+        return;
+    }
+
+    auto it_destination = seen.find(destination);
+    if(it_destination == seen.end()){
+        std::cerr << "Unable to find the BasicBlock containing " << std::hex << destination << "\n";
+        return;
+    }
+
+    auto it_bb_source = std::find(it_source->second->successors.begin(), it_source->second->successors.end(), it_destination->second);
+    if(it_bb_source != it_source->second->successors.end()){
+        std::cout << "Edge already exists\n";
+        return;
+    }
+
+    it_source->second->successors.push_back(it_destination->second);
+    std::cout << "Edge successfully added!\n";
+}
+
+
+void walkthrough(uint32_t begining_addr, std::vector<int> timings, int t_offset = 0){
+
+}

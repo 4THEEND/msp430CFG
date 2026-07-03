@@ -11,7 +11,49 @@
 #include "cfg.hpp"
 
 
-using BinaryContext = std::tuple<std::shared_ptr<BinaryLoader>, cfg>;
+std::vector<int> parseCSV(std::istream& str)
+{
+    std::vector<int> result{};
+    std::string line{};
+    std::getline(str, line);
+
+    std::stringstream lineStream(line);
+    std::string cell;
+
+    while(std::getline(lineStream,cell, ','))
+    {
+        result.push_back(std::stoi(cell));
+    }
+    return result;
+}
+
+
+struct Timings
+{
+    std::vector<int> trace;
+    int t_offset;
+
+    Timings(): trace(), t_offset() {};
+
+    inline void reset_offset(){ t_offset = 0; };
+    void loadTrace(std::string filename);
+};
+
+
+void Timings::loadTrace(std::string filename){
+    std::ifstream file(filename);
+    if (!file)
+    {
+        std::cerr << "Failed to open file: " << filename << "\n";
+        return;
+    }
+    trace = parseCSV(file);
+    for(int i = 0; i < 10; i++)
+        std::cout << trace[i] << "\n";
+    std::cout << "Sucessfully imported the csv trace! (length: " << trace.size() << ")\n";
+}
+
+using BinaryContext = std::tuple<std::shared_ptr<BinaryLoader>, cfg, Timings>;
 using Files = std::map<std::string, BinaryContext>;
 
 
@@ -81,7 +123,7 @@ void load_callback(int argc, char** argv, Files& files, std::string& active_file
 
     my_file->parseSymbolTable();
 
-    files.insert({file_name, std::make_tuple(my_file, cfg(my_file))});
+    files.insert({file_name, std::make_tuple(my_file, cfg(my_file), Timings())});
     active_file = file_name;
 
     std::cout << "File sucessfully loaded and active!!\n";
@@ -159,6 +201,48 @@ void export_callback(int argc, char** argv, Files& files, std::string& active_fi
 }
 
 
+void add_edge_callback(int argc, char** argv, Files& files, std::string& active_file){
+    argparse::ArgumentParser program("add-edge");
+
+    program.add_argument("source")
+        .help("Source address")
+        .scan<'u', unsigned int>();
+
+    program.add_argument("destination")
+        .help("Destination address")
+        .scan<'u', unsigned int>();
+
+    parse_args(program, argc, argv);
+
+    auto it = files.find(active_file);
+    if(it == files.end()){
+        std::cout << "Unable to select this file\n";
+        return;
+    }
+
+    std::get<cfg>(it->second).add_edge(program.get<unsigned int>("source"), program.get<unsigned int>("destination"));
+}
+
+
+void import_callback(int argc, char** argv, Files& files, std::string& active_file){
+    argparse::ArgumentParser program("import");
+
+    program.add_argument("csv")
+        .help("CSV of instruction timings to be imported");
+
+    parse_args(program, argc, argv);
+
+    auto it = files.find(active_file);
+    if(it == files.end()){
+        std::cout << "Unable to select this file\n";
+        return;
+    }
+
+    std::get<Timings>(it->second).loadTrace(program.get("csv"));
+}
+
+
+
 int main(int argc, char** argv){
     std::string param{};
     std::string active_file{};
@@ -170,6 +254,8 @@ int main(int argc, char** argv){
         {"select", select_callback},
         {"disassemble", disassemble_callback},
         {"export", export_callback},
+        {"add-edge", add_edge_callback},
+        {"import", import_callback},
     };
 
     while(true){
