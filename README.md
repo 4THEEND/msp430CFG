@@ -7,3 +7,5 @@ Once you have used the command export to get the `.dot` file you can then export
 `dot -Tpng ./cfg.dot -o ./cfg.PNG`.
 
 It supports loading multiplie binairies using the `load` command (and `select` to select which binairy you want to work with).
+
+The cfg can also give how much cycles an instruction is supposed to last (on openMSP) but it's not accessible through the terminal.
