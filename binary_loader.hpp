@@ -33,6 +33,7 @@ struct BinaryLoader {
 
     BinaryLoader() : symbols_table() {};
     bool loadBinary(const std::string &filename);
+    uint16_t read_memory(uint32_t address);
 
     virtual uint32_t getAddressOffset(uint32_t address, bool entrypoint = false) = 0;
     virtual bool getEntryOffset() = 0;

@@ -33,6 +33,15 @@ bool BinaryLoader::loadBinary(const std::string &filename)
     return true;
 }
 
+uint16_t BinaryLoader::read_memory(uint32_t address){
+    uint32_t offset = getAddressOffset(address);
+    uint16_t content = data.data()[offset + 1];
+    content <<= 8;
+    content += data.data()[offset];
+
+    return content;
+}
+
 
 uint32_t ELFFile::getAddressOffset(uint32_t address, bool entrypoint){
     if (data.size() < sizeof(Elf32_Ehdr))

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "binary_loader.hpp"
+#include "State.hpp"
 
 #include <inttypes.h>
 #include <iostream>
@@ -75,27 +76,6 @@ enum class AddressingMode {
 };
 
 
-// Registers
-enum RegisterEnum {
-    PC,
-    SP,
-    SR,
-    CG,
-    R4,
-    R5,
-    R6,
-    R7,
-    R8,
-    R9,
-    R10,
-    R11,
-    R12,
-    R13,
-    R14,
-    R15
-};
-
-
 class Instruction {
 public:
     std::array<std::string, 16> regs_assoc{
@@ -123,8 +103,6 @@ public:
     };
 
 protected:
-    uint16_t read_memory(uint32_t address, std::shared_ptr<BinaryLoader> binary_file);
-    
     bool should_get_complement(AddressingMode Am);
     AddressingMode parse_mode(uint8_t Am, uint8_t source);
     uint8_t parse_mode(AddressingMode Am, bool is_source = true);

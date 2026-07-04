@@ -43,16 +43,6 @@ std::string Instruction::decorate_reg(uint8_t reg, AddressingMode Am, uint16_t e
 }
 
 
-uint16_t Instruction::read_memory(uint32_t address, std::shared_ptr<BinaryLoader> binary_file){
-    uint32_t offset = binary_file->getAddressOffset(address);
-    uint16_t content = binary_file->data.data()[offset + 1];
-    content <<= 8;
-    content += binary_file->data.data()[offset];
-
-    return content;
-}
-
-
 AddressingMode Instruction::parse_mode(uint8_t Am, uint8_t source){
     switch(Am){
         case AS_MODE_0:
@@ -111,6 +101,7 @@ uint8_t Instruction::parse_mode(AddressingMode Am, bool is_source){
 
 }
 
+
 bool Instruction::should_get_complement(AddressingMode Am){
     return (Am == AddressingMode::INDEXED_MODE)
         || (Am == AddressingMode::SYMBOLIC_MODE)
@@ -122,7 +113,7 @@ bool Instruction::should_get_complement(AddressingMode Am){
 bool Format1Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file){
     instruction_length = 1;
     address = instruction_address;
-    uint16_t instruction_header = read_memory(instruction_address, binary_file);
+    uint16_t instruction_header = binary_file->read_memory(instruction_address);
     if(instruction_header >> 12 != opcode)
         return false;
     
@@ -130,14 +121,14 @@ bool Format1Instruction::consume(uint32_t instruction_address, std::shared_ptr<B
     As = parse_mode((instruction_header >> 4) & 0b11, source);
     if(should_get_complement(As)){
         instruction_length++;
-        source_complement = read_memory(instruction_address + 2, binary_file);
+        source_complement = binary_file->read_memory(instruction_address + 2);
     }
 
 
     destination = instruction_header & 0b1111;
     Ad = parse_mode((instruction_header >> 7) & 1, destination);
     if(should_get_complement(Ad)){
-        destination_complement = read_memory(instruction_address + 2 * instruction_length, binary_file);
+        destination_complement = binary_file->read_memory(instruction_address + 2 * instruction_length);
         instruction_length++;
     }
 
@@ -245,7 +236,7 @@ std::string Format1Instruction::abstractGetString(std::string instruction_name){
 
 
 bool Format2Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file) {
-    uint16_t instruction_header = read_memory(instruction_address, binary_file);
+    uint16_t instruction_header = binary_file->read_memory(instruction_address);
     instruction_length = 1;
     address = instruction_address;
     modify_control_flow = (opcode == CALL || opcode == RETI ? true : false);
@@ -256,7 +247,7 @@ bool Format2Instruction::consume(uint32_t instruction_address, std::shared_ptr<B
     As = parse_mode((instruction_header >> 4) & 0b11, source);
     if(should_get_complement(As)){
         instruction_length++;
-        source_complement = read_memory(instruction_address + 2, binary_file);
+        source_complement = binary_file->read_memory(instruction_address + 2);
     }
 
     byte_instruction = (instruction_header >> 6) & 1;
@@ -365,7 +356,7 @@ int16_t sign_extend(int16_t addr){
 
 
 bool Format3Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file){
-    uint16_t instruction_header = read_memory(instruction_address, binary_file);
+    uint16_t instruction_header = binary_file->read_memory(instruction_address);
     instruction_length = 1;
     address = instruction_address;
     modify_control_flow = true;
