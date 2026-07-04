@@ -393,11 +393,13 @@ std::array<uint16_t, 3> Format3Instruction::get_instruction(){
 }
 
 
-std::vector<uint32_t> Format3Instruction::get_next_addrs(State &state)
+std::set<uint32_t> Format3Instruction::get_next_addrs(State &state)
 {
-    std::vector<uint32_t> next_addrs = {address + 2 + 2 * pc_offset};
+    std::set<uint32_t> next_addrs = {address + 2 + 2 * pc_offset};
     if(condition != JMP)
-        next_addrs.emplace_back(address + 2 * instruction_length);
+        next_addrs.insert(address + 2 * instruction_length);
+    
+    state.clear_gp_registers();
 
     return next_addrs;
 }
@@ -469,7 +471,7 @@ std::pair<bool, std::optional<uint16_t>> parse_destination(uint8_t parameter, Ad
 }
 
 
-std::vector<uint32_t> MOVInstruction::get_next_addrs(State& state){
+std::set<uint32_t> MOVInstruction::get_next_addrs(State& state){
     std::optional<uint16_t> p_source{}, location{};
     bool is_memory;
 
@@ -492,7 +494,7 @@ std::vector<uint32_t> MOVInstruction::get_next_addrs(State& state){
 }
 
 
-std::vector<uint32_t> ADDInstruction::get_next_addrs(State &state)
+std::set<uint32_t> ADDInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, p_destination{}, location{};
     bool is_memory{};
@@ -518,7 +520,7 @@ std::vector<uint32_t> ADDInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> ADDCInstruction::get_next_addrs(State &state)
+std::set<uint32_t> ADDCInstruction::get_next_addrs(State &state)
 {
     // TODO: Manage carry bit
     auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
@@ -531,7 +533,7 @@ std::vector<uint32_t> ADDCInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> SUBCInstruction::get_next_addrs(State &state)
+std::set<uint32_t> SUBCInstruction::get_next_addrs(State &state)
 {
     // TODO: Manage carry bit
     auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
@@ -544,7 +546,7 @@ std::vector<uint32_t> SUBCInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> SUBInstruction::get_next_addrs(State &state)
+std::set<uint32_t> SUBInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, p_destination{}, location{};
     bool is_memory{};
@@ -557,7 +559,7 @@ std::vector<uint32_t> SUBInstruction::get_next_addrs(State &state)
         return {};
     }
 
-    std::optional<uint16_t> substraction = p_source + p_destination;
+    std::optional<uint16_t> substraction = p_source - p_destination;
     if(is_memory)
         state.write_memory(location, substraction, byte_instruction);
     else 
@@ -570,7 +572,7 @@ std::vector<uint32_t> SUBInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> DADDInstruction::get_next_addrs(State &state)
+std::set<uint32_t> DADDInstruction::get_next_addrs(State &state)
 {
     // TODO: Manage carry bit
     auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
@@ -583,7 +585,7 @@ std::vector<uint32_t> DADDInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> BICInstruction::get_next_addrs(State &state)
+std::set<uint32_t> BICInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, p_destination{}, location{};
     bool is_memory{};
@@ -609,7 +611,7 @@ std::vector<uint32_t> BICInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> BISInstruction::get_next_addrs(State &state)
+std::set<uint32_t> BISInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, p_destination{}, location{};
     bool is_memory{};
@@ -622,20 +624,20 @@ std::vector<uint32_t> BISInstruction::get_next_addrs(State &state)
         return {};
     }
 
-    std::optional<uint16_t> bic_result = p_source | p_destination;
+    std::optional<uint16_t> bis_result = p_source | p_destination;
     if(is_memory)
-        state.write_memory(location, bic_result, byte_instruction);
+        state.write_memory(location, bis_result, byte_instruction);
     else 
-        state.write_register(location.value(), bic_result, byte_instruction);
+        state.write_register(location.value(), bis_result, byte_instruction);
 
-    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && bic_result)
-        return { bic_result.value() };
+    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && bis_result)
+        return { bis_result.value() };
 
     return {address + 2 * instruction_length };
 }
 
 
-std::vector<uint32_t> XORInstruction::get_next_addrs(State &state)
+std::set<uint32_t> XORInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, p_destination{}, location{};
     bool is_memory{};
@@ -648,7 +650,7 @@ std::vector<uint32_t> XORInstruction::get_next_addrs(State &state)
         return {};
     }
 
-    std::optional<uint16_t> xor_result = p_source + p_destination;
+    std::optional<uint16_t> xor_result = p_source ^ p_destination;
     if(is_memory)
         state.write_memory(location, xor_result, byte_instruction);
     else 
@@ -661,7 +663,7 @@ std::vector<uint32_t> XORInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> ANDInstruction::get_next_addrs(State &state)
+std::set<uint32_t> ANDInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, p_destination{}, location{};
     bool is_memory{};
@@ -674,7 +676,7 @@ std::vector<uint32_t> ANDInstruction::get_next_addrs(State &state)
         return {};
     }
 
-    std::optional<uint16_t> and_result = p_source + p_destination;
+    std::optional<uint16_t> and_result = p_source & p_destination;
     if(is_memory)
         state.write_memory(location, and_result, byte_instruction);
     else 
@@ -687,7 +689,7 @@ std::vector<uint32_t> ANDInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> RRCInstruction::get_next_addrs(State &state)
+std::set<uint32_t> RRCInstruction::get_next_addrs(State &state)
 {
     // TODO: Manage carry bit
     auto [is_memory, location] = parse_destination(source, As, source_complement, state);
@@ -700,7 +702,7 @@ std::vector<uint32_t> RRCInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> SWPBInstruction::get_next_addrs(State &state)
+std::set<uint32_t> SWPBInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, location{};
     bool is_memory{};
@@ -725,7 +727,7 @@ std::vector<uint32_t> SWPBInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> RRAInstruction::get_next_addrs(State &state)
+std::set<uint32_t> RRAInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, location{};
     bool is_memory{};
@@ -750,7 +752,7 @@ std::vector<uint32_t> RRAInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> SXTInstruction::get_next_addrs(State &state)
+std::set<uint32_t> SXTInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{}, location{};
     bool is_memory{};
@@ -775,7 +777,7 @@ std::vector<uint32_t> SXTInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> PUSHInstruction::get_next_addrs(State &state)
+std::set<uint32_t> PUSHInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{};
     try{
@@ -792,7 +794,7 @@ std::vector<uint32_t> PUSHInstruction::get_next_addrs(State &state)
 }
 
 
-std::vector<uint32_t> CALLInstruction::get_next_addrs(State &state)
+std::set<uint32_t> CALLInstruction::get_next_addrs(State &state)
 {
     std::optional<uint16_t> p_source{};
     try{
@@ -804,6 +806,8 @@ std::vector<uint32_t> CALLInstruction::get_next_addrs(State &state)
     std::optional<uint16_t> sp = state.read_register(SP);
     state.write_memory(sp, p_source);
     state.write_register(SP, sp - 1);
+
+    state.clear_gp_registers();
 
     if(p_source)
         return { p_source.value() };

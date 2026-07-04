@@ -71,7 +71,7 @@ uint32_t ELFFile::getAddressOffset(uint32_t address, bool entrypoint){
             return address - ph.p_vaddr + ph.p_offset;
     }
 
-    std::cerr << "Offset not found." << std::endl;
+    //std::cerr << "Offset not found: 0x" << std::hex << address << std::dec << std::endl;
     return -1;
 }
 

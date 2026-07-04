@@ -49,10 +49,10 @@ void State::write_register(uint8_t reg, std::optional<uint16_t> val, bool byte){
 std::optional<uint8_t> State::read_byte(uint32_t addr){
     auto mem_it = modified_memory.find(addr);
     if(mem_it == modified_memory.end()){
-        uint16_t res = binary_file->read_memory(addr) & 0b11111111;
+        uint16_t res = binary_file->read_memory(addr);
         if(res == -1)
             return std::nullopt;
-        return res;
+        return res & 0b11111111;
     }
     
     return mem_it->second;
@@ -175,7 +175,7 @@ std::optional<uint16_t> operator|(std::optional<uint16_t> o1, std::optional<uint
 
 std::optional<uint16_t> op_not(std::optional<uint16_t> o){
     if(o)
-        return !o.value();
+        return ~o.value();
     return std::nullopt;
 }
 
@@ -203,7 +203,6 @@ std::optional<uint16_t> op_sxt(std::optional<uint16_t> o)
             return o.value() | 0b1111111100000000;
         }
         return o.value() & 0b11111111;
-        return 0; 
     }
     return std::nullopt;
 }
