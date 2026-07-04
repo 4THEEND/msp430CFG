@@ -96,6 +96,7 @@ public:
     virtual bool consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file) = 0;
     virtual int get_instruction_timing() = 0;
     virtual std::array<uint16_t, 3> get_instruction() = 0;
+    virtual void update_state(State& state){};
 
     friend std::ostream& operator<<(std::ostream& os, Instruction& instr){
         os << instr.getString();
@@ -147,6 +148,8 @@ protected:
 class MOVInstruction : public Format1Instruction {
 public:
     MOVInstruction() : Format1Instruction(MOV) {};
+
+    void update_state(State& state) override;
 
     std::string getString() {
         if(is_ret)

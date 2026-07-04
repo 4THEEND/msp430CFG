@@ -23,7 +23,7 @@ FetchContent_MakeAvailable(argparse)
 
 set(CMAKE_C_FLAGS "-Wall -Werror -g ${CMAKE_C_FLAGS}")
 
-add_executable(ipe-disasm main.cpp binary_loader.cpp cfg.cpp Instruction.cpp)
+add_executable(ipe-disasm main.cpp binary_loader.cpp cfg.cpp Instruction.cpp State.cpp)
 target_link_libraries(ipe-disasm argparse)
 
 add_custom_target(

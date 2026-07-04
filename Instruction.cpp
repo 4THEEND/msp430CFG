@@ -66,8 +66,10 @@ AddressingMode Instruction::parse_mode(uint8_t Am, uint8_t source){
         case AS_MODE_3:
             if(source == PC)
                 return AddressingMode::IMMEDIATE_MODE;
-            else if(source == CG)
+            else if(source == SR)
                 return AddressingMode::CONSTANT_MODE8;
+            else if(source == CG)
+                return AddressingMode::CONSTANT_MODE_NEG1;
             return AddressingMode::INDIRECT_AUTOINCREMENT;
         default:
             std::cerr << "Unable to find the right mode\n";
@@ -92,6 +94,7 @@ uint8_t Instruction::parse_mode(AddressingMode Am, bool is_source){
             return AS_MODE_2;
         case AddressingMode::IMMEDIATE_MODE:
         case AddressingMode::CONSTANT_MODE8:
+        case AddressingMode::CONSTANT_MODE_NEG1:
         case AddressingMode::INDIRECT_AUTOINCREMENT:
             return AS_MODE_3;
         default:
@@ -383,4 +386,76 @@ std::array<uint16_t, 3> Format3Instruction::get_instruction(){
 
 std::string Format3Instruction::abstractGetString(std::string instruction_name){
     return instruction_name + " $" + std::to_string(2 + 2 * pc_offset);
+}
+
+
+std::optional<uint16_t> parse_parameter(uint8_t parameter, AddressingMode am, uint16_t parameter_extension, State& state){
+    switch(am){
+        case AddressingMode::CONSTANT_MODE0:
+            return std::make_optional(0);
+        case AddressingMode::CONSTANT_MODE1:
+            return std::make_optional(1);
+        case AddressingMode::CONSTANT_MODE2:
+            return std::make_optional(2);
+        case AddressingMode::CONSTANT_MODE4:
+            return std::make_optional(4);
+        case AddressingMode::CONSTANT_MODE8:
+            return std::make_optional(8);
+        case AddressingMode::CONSTANT_MODE_NEG1:
+            return std::make_optional(-1);
+        case AddressingMode::REGISTER_MODE:
+            return state.read_register(parameter);
+        case AddressingMode::INDEXED_MODE:
+        case AddressingMode::SYMBOLIC_MODE:
+            return state.read_memory(state.read_register(parameter) + parameter_extension);
+        case AddressingMode::ABSOLUTE_MODE:
+            return state.read_memory(parameter_extension);
+        case AddressingMode::INDIRECT_REGISTER_MODE:
+            return state.read_memory(state.read_register(parameter));
+        case AddressingMode::INDIRECT_AUTOINCREMENT:
+            return state.read_memory(state.read_register(parameter));
+            // Warning: we also do the increment here
+            state.write_register(parameter, state.read_register(parameter) + 1);
+        case AddressingMode::IMMEDIATE_MODE:
+            return std::make_optional(parameter);
+        default:
+            std::cerr << "Unable to find the right mode\n";
+            return -1;
+    }
+}
+
+
+std::pair<bool, std::optional<uint16_t>> parse_destination(uint8_t parameter, AddressingMode am, uint16_t parameter_extension, State& state){
+    switch(am){
+        case AddressingMode::REGISTER_MODE:
+            return {false, parameter};
+        case AddressingMode::INDEXED_MODE:
+        case AddressingMode::SYMBOLIC_MODE:
+            return {true, state.read_register(parameter) + parameter_extension};
+        case AddressingMode::ABSOLUTE_MODE:
+            return {true, parameter_extension};
+        case AddressingMode::INDIRECT_REGISTER_MODE:
+        case AddressingMode::INDIRECT_AUTOINCREMENT:
+        case AddressingMode::IMMEDIATE_MODE:
+        case AddressingMode::CONSTANT_MODE0:
+        case AddressingMode::CONSTANT_MODE1:
+        case AddressingMode::CONSTANT_MODE2:
+        case AddressingMode::CONSTANT_MODE4:
+        case AddressingMode::CONSTANT_MODE8:
+        case AddressingMode::CONSTANT_MODE_NEG1:
+        default:
+            std::cerr << "Unable to find the right mode\n";
+            return {false, -1};
+    }
+}
+
+
+void  MOVInstruction::update_state(State& state){
+    std::optional<uint16_t> p_source = parse_parameter(source, As, source_complement, state);
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
+
+    if(is_memory)
+        state.write_memory(location, p_source);
+    else 
+        state.write_register(location.value(), p_source);
 }

@@ -41,6 +41,8 @@ struct BinaryLoader {
     virtual void parseSymbolTable() {};
     virtual void printSymbolNames(const std::vector<Symbol> &symbols) {};
     virtual bool is_func(Symbol symbol){ return false; };
+
+    virtual bool is_inside_ipe(uint32_t addr){ return false; };
 };
 
 
@@ -56,6 +58,9 @@ struct ELFFile : public BinaryLoader {
     void parseSymbolTable() override;
     void printSymbolNames(const std::vector<Symbol> &symbols) override;
     bool is_func(Symbol symbol) override;
+
+    // TODO: read the values inside the elf to compute the actual boundaries
+    bool is_inside_ipe(uint32_t addr) override { return 0x8000 <= addr <= 0x8000 + 0x6400; };
 };
 
 
