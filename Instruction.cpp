@@ -459,3 +459,88 @@ void MOVInstruction::update_state(State& state){
     else 
         state.write_register(location.value(), p_source, byte_instruction);
 }
+
+
+void ADDInstruction::update_state(State &state)
+{
+}
+
+
+void ADDCInstruction::update_state(State &state)
+{
+}
+
+
+void SUBCInstruction::update_state(State &state)
+{
+}
+
+
+void SUBInstruction::update_state(State &state)
+{
+}
+
+
+void DADDInstruction::update_state(State &state)
+{
+}
+
+
+void BITInstruction::update_state(State &state)
+{
+}
+
+
+void BICInstruction::update_state(State &state)
+{
+}
+
+
+void BISInstruction::update_state(State &state)
+{
+}
+
+
+void XORInstruction::update_state(State &state)
+{
+}
+
+
+void ANDInstruction::update_state(State &state)
+{
+}
+
+
+void RRCInstruction::update_state(State &state)
+{
+}
+
+
+void SWPBInstruction::update_state(State &state)
+{
+}
+
+
+void RRAInstruction::update_state(State &state)
+{
+}
+
+
+void SXTInstruction::update_state(State &state)
+{
+}
+
+
+void PUSHInstruction::update_state(State &state)
+{
+}
+
+
+void CALLInstruction::update_state(State &state)
+{
+}
+
+
+void RETIInstruction::update_state(State &state)
+{
+}

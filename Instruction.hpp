@@ -162,6 +162,8 @@ class ADDInstruction : public Format1Instruction {
 public:
     ADDInstruction() : Format1Instruction(ADD) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("add");
     }
@@ -170,6 +172,8 @@ public:
 class ADDCInstruction : public Format1Instruction {
 public:
     ADDCInstruction() : Format1Instruction(ADDC) {};
+
+    void update_state(State& state) override;    
 
     std::string getString() {
         return abstractGetString("addc");
@@ -180,6 +184,8 @@ class SUBCInstruction : public Format1Instruction {
 public:
     SUBCInstruction() : Format1Instruction(SUBC) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("subc");
     }
@@ -188,6 +194,8 @@ public:
 class SUBInstruction : public Format1Instruction {
 public:
     SUBInstruction() : Format1Instruction(SUB) {};
+
+    void update_state(State& state) override;
 
     std::string getString() {
         return abstractGetString("sub");
@@ -207,6 +215,8 @@ class DADDInstruction : public Format1Instruction {
 public:
     DADDInstruction() : Format1Instruction(DADD) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("dadd");
     }
@@ -215,6 +225,8 @@ public:
 class BITInstruction : public Format1Instruction {
 public:
     BITInstruction() : Format1Instruction(BIT) {};
+
+    void update_state(State& state) override;
 
     std::string getString() {
         return abstractGetString("bit");
@@ -225,6 +237,8 @@ class BICInstruction : public Format1Instruction {
 public:
     BICInstruction() : Format1Instruction(BIC) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("bic");
     }
@@ -233,6 +247,8 @@ public:
 class BISInstruction : public Format1Instruction {
 public:
     BISInstruction() : Format1Instruction(BIS) {};
+
+    void update_state(State& state) override;
 
     std::string getString() {
         return abstractGetString("bis");
@@ -243,6 +259,8 @@ class XORInstruction : public Format1Instruction {
 public:
     XORInstruction() : Format1Instruction(XOR) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("xor");
     }
@@ -251,6 +269,8 @@ public:
 class ANDInstruction : public Format1Instruction {
 public:
     ANDInstruction() : Format1Instruction(AND) {};
+
+    void update_state(State& state) override;
 
     std::string getString() {
         return abstractGetString("and");
@@ -287,6 +307,8 @@ class RRCInstruction : public Format2Instruction {
 public:
     RRCInstruction() : Format2Instruction(RRC) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("rrc");
     }
@@ -295,6 +317,8 @@ public:
 class SWPBInstruction : public Format2Instruction {
 public:
     SWPBInstruction() : Format2Instruction(SWPB) {};
+
+    void update_state(State& state) override;
 
     std::string getString() {
         return abstractGetString("swpb");
@@ -305,6 +329,8 @@ class RRAInstruction : public Format2Instruction {
 public:
     RRAInstruction() : Format2Instruction(RRA) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("rra");
     }
@@ -313,6 +339,8 @@ public:
 class SXTInstruction : public Format2Instruction {
 public:
     SXTInstruction() : Format2Instruction(SXT) {};
+
+    void update_state(State& state) override;
 
     std::string getString() {
         return abstractGetString("sxt");
@@ -323,6 +351,8 @@ class PUSHInstruction : public Format2Instruction {
 public:
     PUSHInstruction() : Format2Instruction(PUSH) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("push");
     }
@@ -332,6 +362,8 @@ class CALLInstruction : public Format2Instruction {
 public:
     CALLInstruction() : Format2Instruction(CALL) {};
 
+    void update_state(State& state) override;
+
     std::string getString() {
         return abstractGetString("call");
     }
@@ -340,6 +372,8 @@ public:
 class RETIInstruction : public Format2Instruction {
 public:
     RETIInstruction() : Format2Instruction(RETI) {};
+
+    void update_state(State& state) override;
 
     std::string getString() {
         return abstractGetString("reti");
