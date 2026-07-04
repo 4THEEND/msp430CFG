@@ -106,7 +106,7 @@ public:
 protected:
     bool should_get_complement(AddressingMode Am);
     AddressingMode parse_mode(uint8_t Am, uint8_t source);
-    uint8_t parse_mode(AddressingMode Am, bool is_source = true);
+    uint8_t parse_mode(AddressingMode Am);
 
     std::string decorate_reg(uint8_t reg, AddressingMode Am, uint16_t source_extension);
 };

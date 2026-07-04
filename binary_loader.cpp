@@ -33,6 +33,7 @@ bool BinaryLoader::loadBinary(const std::string &filename)
     return true;
 }
 
+
 uint16_t BinaryLoader::read_memory(uint32_t address){
     uint32_t offset = getAddressOffset(address);
     uint16_t content = data.data()[offset + 1];

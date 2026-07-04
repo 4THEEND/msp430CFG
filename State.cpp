@@ -16,30 +16,108 @@ State::State(uint32_t base_pc, std::shared_ptr<BinaryLoader> loader, bool unkown
 }
 
 
-std::optional<uint16_t> State::read_register(uint8_t reg){
+std::optional<uint16_t> State::read_register(uint8_t reg, bool byte){
+    std::optional<uint16_t> ret_value{};
     if(reg == SP && registers[PC] && binary_file->is_inside_ipe(registers[PC].value()))
-        return registers[IPE_SP];
-    return registers[reg];
+        ret_value = registers[IPE_SP];
+    ret_value = registers[reg];
+
+    if(!byte || !ret_value)
+        return ret_value;
+
+    return std::make_optional(ret_value.value() & 0b1111111100000000);
 }
 
 
-void State::write_register(uint8_t reg, std::optional<uint16_t> val){
+void State::write_register(uint8_t reg, std::optional<uint16_t> val, bool byte){
     if(reg == SP && registers[PC] && binary_file->is_inside_ipe(registers[PC].value()))
-        registers[IPE_SP] = val;
-    registers[reg] = val;
+        reg = IPE_SP;
+    
+    if(!byte || !val){
+        registers[reg] = val;
+        return;
+    }
+    
+    uint16_t good_val = val.value() & 0b11111111;
+    if(!registers[reg]){
+        registers[reg] = std::make_optional(good_val);
+        return;
+    }
+
+    registers[reg] = (registers[reg].value() & 0b1111111100000000) + good_val;
+
 }
 
 
-std::optional<uint16_t> State::read_memory(std::optional<uint32_t> addr){
+std::optional<uint8_t> State::read_byte(uint32_t addr){
+    auto mem_it = modified_memory.find(addr);
+    if(mem_it == modified_memory.end())
+        return binary_file->read_memory(addr) & 0b11111111;
+    return mem_it->second;
+}
+
+
+std::optional<uint16_t> State::read_memory(std::optional<uint32_t> addr, bool byte){
     if(!addr)
         return std::nullopt;
 
-    return std::nullopt;
+    if(byte)
+        return read_byte(addr.value());
+
+    std::optional<uint8_t> bits = read_byte(addr.value() + 1);
+    if(!bits)
+        return bits;
+
+    uint16_t content = bits.value();
+    content <<= 8;
+
+    bits = read_byte(addr.value());
+    if(!bits)
+        return bits;
+    content += bits.value();
+
+    return content;
 }
 
 
-void State::write_memory(std::optional<uint32_t> addr, std::optional<uint16_t> val){
+void State::write_memory(std::optional<uint32_t> addr, std::optional<uint16_t> val, bool byte){
+    if(!addr)
+        return;
 
+    if(!byte){
+        if(val)
+            modified_memory[addr.value() + 1] = val.value() >> 8;
+        else 
+            modified_memory[addr.value() + 1] = val;
+    }
+
+    if(val)
+        modified_memory[addr.value()] = val.value();
+    else
+        modified_memory[addr.value()] = val;
+}
+
+
+std::string State::dumpState(){
+    std::stringstream dump;
+
+    dump << "=============[State Dump]=============\n";
+    for(int i = 0; i < regs_assoc.size(); i++){
+        if(registers[i])
+            dump << regs_assoc[i] << ": 0x" << std::hex << registers[i].value() << std::dec << "\n";
+        else
+            dump << regs_assoc[i] << ": UNKNOWN\n";
+    }
+    dump << "Memory:\n";
+    for(auto [addr, val] : modified_memory){
+        if(val)
+            dump << std::hex << "0x" << addr << ": 0x" << val.value() << std::dec << "\n";
+        else
+            dump << std::hex << "0x" << addr << ": UNKNOWN\n";
+    }
+
+    dump << "======================================";
+    return dump.str();
 }
 
 
@@ -60,20 +138,4 @@ std::optional<uint16_t> operator-(std::optional<uint16_t> o1, std::optional<uint
         }
     }
     return std::nullopt;
-}
-
-
-std::string State::dumpState(){
-    std::stringstream dump;
-
-    dump << "=============[State Dump]=============\n";
-    for(int i = 0; i < regs_assoc.size(); i++){
-        if(registers[i])
-            dump << regs_assoc[i] << ": " << std::hex << registers[i].value() << std::dec << "\n";
-        else
-            dump << regs_assoc[i] << ": UNKNOWN\n";
-    }
-
-    dump << "======================================";
-    return dump.str();
 }

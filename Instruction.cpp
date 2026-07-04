@@ -78,7 +78,7 @@ AddressingMode Instruction::parse_mode(uint8_t Am, uint8_t source){
 }
 
 // We've parse_mode(parse_mode) = id lol
-uint8_t Instruction::parse_mode(AddressingMode Am, bool is_source){
+uint8_t Instruction::parse_mode(AddressingMode Am){
     switch(Am){
         case AddressingMode::CONSTANT_MODE0:
         case AddressingMode::REGISTER_MODE:
@@ -212,7 +212,7 @@ std::array<uint16_t, 3> Format1Instruction::get_instruction(){
 
     header += opcode << 12;
     header += (source & 0b1111) << 8;
-    header += (parse_mode(Ad, false) & 1) << 7;
+    header += (parse_mode(Ad) & 1) << 7;
     header += (byte_instruction & 1) << 6;
     header += (parse_mode(As) & 0b11) << 4;
     header += destination & 0b1111;
@@ -389,7 +389,7 @@ std::string Format3Instruction::abstractGetString(std::string instruction_name){
 }
 
 
-std::optional<uint16_t> parse_parameter(uint8_t parameter, AddressingMode am, uint16_t parameter_extension, State& state){
+std::optional<uint16_t> parse_parameter(uint8_t parameter, AddressingMode am, uint16_t parameter_extension, State& state, bool byte){
     switch(am){
         case AddressingMode::CONSTANT_MODE0:
             return std::make_optional(0);
@@ -404,20 +404,20 @@ std::optional<uint16_t> parse_parameter(uint8_t parameter, AddressingMode am, ui
         case AddressingMode::CONSTANT_MODE_NEG1:
             return std::make_optional(-1);
         case AddressingMode::REGISTER_MODE:
-            return state.read_register(parameter);
+            return state.read_register(parameter, byte);
         case AddressingMode::INDEXED_MODE:
         case AddressingMode::SYMBOLIC_MODE:
-            return state.read_memory(state.read_register(parameter) + parameter_extension);
+            return state.read_memory(state.read_register(parameter) + parameter_extension, byte);
         case AddressingMode::ABSOLUTE_MODE:
-            return state.read_memory(parameter_extension);
+            return state.read_memory(parameter_extension, byte);
         case AddressingMode::INDIRECT_REGISTER_MODE:
-            return state.read_memory(state.read_register(parameter));
+            return state.read_memory(state.read_register(parameter), byte);
         case AddressingMode::INDIRECT_AUTOINCREMENT:
-            return state.read_memory(state.read_register(parameter));
+            return state.read_memory(state.read_register(parameter), byte);
             // Warning: we also do the increment here
             state.write_register(parameter, state.read_register(parameter) + 1);
         case AddressingMode::IMMEDIATE_MODE:
-            return std::make_optional(parameter);
+            return std::make_optional(parameter_extension);
         default:
             std::cerr << "Unable to find the right mode\n";
             return -1;
@@ -450,12 +450,12 @@ std::pair<bool, std::optional<uint16_t>> parse_destination(uint8_t parameter, Ad
 }
 
 
-void  MOVInstruction::update_state(State& state){
-    std::optional<uint16_t> p_source = parse_parameter(source, As, source_complement, state);
+void MOVInstruction::update_state(State& state){
+    std::optional<uint16_t> p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
     auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
 
     if(is_memory)
-        state.write_memory(location, p_source);
+        state.write_memory(location, p_source, byte_instruction);
     else 
-        state.write_register(location.value(), p_source);
+        state.write_register(location.value(), p_source, byte_instruction);
 }
