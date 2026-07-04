@@ -6,9 +6,11 @@
 
 
 std::shared_ptr<BasicBlock> cfg::splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr){
-    // std::cout << "Splitting at " << std::hex << addr << std::dec << "\n";
-    if(addr == current_block->first_address)
+    std::cout << "Splitting at " << std::hex << addr << " " << current_block->first_address << std::dec << "\n";
+    if(addr == current_block->first_address){
         return current_block;
+    }
+        
 
     std::shared_ptr<BasicBlock> new_bb = std::make_shared<BasicBlock>(addr);
     m_basic_blocks.emplace_back(new_bb);
@@ -41,23 +43,42 @@ std::shared_ptr<BasicBlock> cfg::splitBlock(std::shared_ptr<BasicBlock> current_
 }
 
 
-void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack){
-    if(seen.find(instr_address) != seen.end()){
-        //std::cout << "Already seen instruction " << std::hex << instr_address << std::dec << "\n";
-        return;
+void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack, std::set<uint32_t> seen_twice){
+    auto it_bb = seen.find(instr_address);
+    std::shared_ptr<Instruction> new_instr{};
+    
+    std::cout << "Going to explore "  << std::hex << instr_address << std::dec << "\n";
+
+    if(it_bb != seen.end()){
+        if(seen_twice.find(instr_address) != seen_twice.end())
+            return;
+        seen_twice.insert(instr_address);
+
+        auto res = std::find_if(
+            current_basic_block->instructions.begin(), 
+            current_basic_block->instructions.end(), 
+            [=](std::shared_ptr<Instruction> instr){ return instr->address == instr_address; }
+        );
+
+        if(res == current_basic_block->instructions.end()){
+            std::cerr << "Unable to find the instruction inside the current bb\n";
+            return;
+        }
+
+        new_instr = *res;
+    } else {
+        seen.emplace(instr_address, current_basic_block);
+        new_instr = GetInstructionFactory().Build(instr_address, binary_file);
     }
 
-    seen.emplace(instr_address, current_basic_block);
-    //std::cout << "Going to explore "  << std::hex << instr_address << std::dec << "\n";
-
-    std::shared_ptr<Instruction> new_instr = GetInstructionFactory().Build(instr_address, binary_file);
     if(new_instr == nullptr){
         std::cerr << "Bad instruction!!\n";
         return;
     }
 
-    //std::cout << (*new_instr) << "\n";
-    current_basic_block->addInstruction(new_instr);
+    std::cout << (*new_instr) << "\n";
+    if(it_bb == seen.end())
+        current_basic_block->addInstruction(new_instr);
 
     std::vector<uint32_t> next_addrs = new_instr->next_addrs;
     if(new_instr->is_ret && !return_stack.empty()){
@@ -70,9 +91,17 @@ void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> cu
         current_basic_block = seen.find(instr_address)->second;
 
         auto it = seen.find(next_addr);
-        if(it != seen.end()){
+        if((new_instr->modify_control_flow && it != seen.end()) 
+            || (!new_instr->modify_control_flow && it != seen.end() && it->second != current_basic_block))
+        {
             std::shared_ptr<BasicBlock> new_bb = splitBlock(it->second, it->first);
-            current_basic_block->successors.emplace_back(new_bb);
+
+            if(std::find(current_basic_block->successors.begin(), current_basic_block->successors.end(), new_bb) == current_basic_block->successors.end()){
+                current_basic_block->successors.emplace_back(new_bb);
+                seen_twice = {};
+            }
+            std::cout << seen_twice.size() << " " << new_bb << "\n";
+            explore_address(next_addr, new_bb, return_stack, seen_twice);
         } 
         else if(new_instr->modify_control_flow){
             std::shared_ptr<BasicBlock> new_bb = std::make_shared<BasicBlock>(next_addr);
@@ -82,11 +111,11 @@ void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> cu
 
             if(new_instr->is_call)
                 return_stack.push(instr_address + 2 * new_instr->instruction_length);
-            explore_address(next_addr, new_bb, return_stack);
+            explore_address(next_addr, new_bb, return_stack, {});
         }
         else {
             // Only one address inside
-            explore_address(next_addrs.front(), current_basic_block, return_stack);
+            explore_address(next_addrs.front(), current_basic_block, return_stack, seen_twice);
         }
     }
 
@@ -160,23 +189,23 @@ void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
             current_bb = std::make_shared<BasicBlock>(binary_file->entry_addr);
             m_basic_blocks = { current_bb };
 
-            explore_address(binary_file->entry_addr, current_bb, {});
+            explore_address(binary_file->entry_addr, current_bb, {}, {});
         }
 
         if(binary_file->support_symbols){
             for(const auto& symbol : binary_file->symbols_table){
-                if(symbol.executable && binary_file->is_func(symbol) && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
-                    if(symbols_to_disassemble.empty() 
+                if(symbol.executable && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
+                    if(symbols_to_disassemble.empty() && binary_file->is_func(symbol)
                     || (!symbols_to_disassemble.empty() 
                     && std::find(symbols_to_disassemble.begin(), symbols_to_disassemble.end(), symbol.name) != symbols_to_disassemble.end()
                     )) {
                         if(seen.find(symbol.address) == seen.end()){
-                            // std::cout << symbol.name << " " << (uint16_t)symbol.info << "\n";
+                            std::cout << symbol.name << " " << (uint16_t)symbol.info << "\n";
 
                             current_bb = std::make_shared<BasicBlock>(symbol.address);
                             m_basic_blocks.emplace_back(current_bb);
 
-                            explore_address(symbol.address, current_bb, {});
+                            explore_address(symbol.address, current_bb, {}, {});
                         }
                     }
                 }

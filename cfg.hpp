@@ -43,6 +43,6 @@ public:
 
 private:
     std::shared_ptr<BasicBlock> splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr);
-    void explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack);
+    void explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack, std::set<uint32_t> seen_twice);
     std::vector<Path> walkthrough_bb(Timings& timings, std::shared_ptr<BasicBlock> bb, Path path, int depth = 0);
 };
