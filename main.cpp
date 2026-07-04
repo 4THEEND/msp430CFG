@@ -129,6 +129,11 @@ void disassemble_callback(int argc, char** argv, Files& files, std::string& acti
         .help("Symbols where we want to start our recursive disassembly")
         .nargs(0, -1);
 
+    program.add_argument("--no-symbols")
+        .help("Use this flag when you just want to disasseble from the entrypoint")
+        .default_value(true)
+        .implicit_value(false);
+
     if(!parse_args(program, argc, argv))
         return;
 
@@ -140,7 +145,7 @@ void disassemble_callback(int argc, char** argv, Files& files, std::string& acti
         return;
     }
 
-    std::get<cfg>(it->second).disassemble(symbols_to_start);
+    std::get<cfg>(it->second).disassemble(symbols_to_start, program.get<bool>("--no-symbols"));
     std::cout << "Successfuly disassembled the binary!\n";
 }
 

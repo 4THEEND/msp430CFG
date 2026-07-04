@@ -45,10 +45,12 @@ std::shared_ptr<BasicBlock> cfg::splitBlock(std::shared_ptr<BasicBlock> current_
 
 void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack, 
     std::set<uint32_t> seen_twice, State state){
+    
+    state.update_pc(instr_address);
     auto it_bb = seen.find(instr_address);
     std::shared_ptr<Instruction> new_instr{};
     
-    std::cout << "Going to explore "  << std::hex << instr_address << std::dec << "\n";
+    std::cout << "Going to explore 0x"  << std::hex << instr_address << std::dec << "\n";
     std::cout << state.dumpState() << "\n";
 
     if(it_bb != seen.end()){
@@ -79,12 +81,11 @@ void cfg::explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> cu
     }
 
     std::cout << (*new_instr) << "\n";
-    new_instr->update_state(state);
 
     if(it_bb == seen.end())
         current_basic_block->addInstruction(new_instr);
 
-    std::vector<uint32_t> next_addrs = new_instr->next_addrs;
+    std::vector<uint32_t> next_addrs = new_instr->get_next_addrs(state);
     if(new_instr->is_ret && !return_stack.empty()){
         next_addrs = { return_stack.top() };
         return_stack.pop();
@@ -182,7 +183,7 @@ void cfg::exportCFGToDOT(const std::string &filename)
 }
 
 
-void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
+void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble, bool use_symbols){
     if(binary_file != nullptr){
         seen = {};
         m_basic_blocks = {};
@@ -193,10 +194,10 @@ void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
             current_bb = std::make_shared<BasicBlock>(binary_file->entry_addr);
             m_basic_blocks = { current_bb };
 
-            explore_address(binary_file->entry_addr, current_bb, {}, {}, State(binary_file->entry_addr, binary_file));
+            explore_address(binary_file->entry_addr, current_bb, {}, {}, State(binary_file));
         }
 
-        if(binary_file->support_symbols){
+        if(binary_file->support_symbols && use_symbols){
             for(const auto& symbol : binary_file->symbols_table){
                 if(symbol.executable && symbol.name.rfind(".L", 0) != 0 && symbol.name.rfind("L0", 0) != 0){
                     if(symbols_to_disassemble.empty() && binary_file->is_func(symbol)
@@ -209,7 +210,7 @@ void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble){
                             current_bb = std::make_shared<BasicBlock>(symbol.address);
                             m_basic_blocks.emplace_back(current_bb);
 
-                            explore_address(symbol.address, current_bb, {}, {}, State(symbol.address, binary_file, true));
+                            explore_address(symbol.address, current_bb, {}, {}, State(binary_file, true));
                         }
                     }
                 }

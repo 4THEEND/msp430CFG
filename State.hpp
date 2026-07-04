@@ -44,7 +44,8 @@ private:
 
     std::shared_ptr<BinaryLoader> binary_file;
 public:
-    State(uint32_t base_pc, std::shared_ptr<BinaryLoader> loader, bool unkown = false);
+    State(std::shared_ptr<BinaryLoader> loader, bool unkown = false);
+    inline void update_pc(uint32_t pc){ registers[PC] = pc; }
 
     std::optional<uint16_t> read_register(uint8_t reg, bool byte = false);
     void write_register(uint8_t reg, std::optional<uint16_t> val, bool byte = false);
@@ -60,3 +61,10 @@ private:
 
 std::optional<uint16_t> operator+(std::optional<uint16_t> o1, std::optional<uint16_t> o2);
 std::optional<uint16_t> operator-(std::optional<uint16_t> o1, std::optional<uint16_t> o2);
+std::optional<uint16_t> operator^(std::optional<uint16_t> o1, std::optional<uint16_t> o2);
+std::optional<uint16_t> operator&(std::optional<uint16_t> o1, std::optional<uint16_t> o2);
+std::optional<uint16_t> operator|(std::optional<uint16_t> o1, std::optional<uint16_t> o2);
+std::optional<uint16_t> op_not(std::optional<uint16_t> o);
+std::optional<uint16_t> op_arith_right_shift(std::optional<uint16_t> o);
+std::optional<uint16_t> op_swpb(std::optional<uint16_t> o);
+std::optional<uint16_t> op_sxt(std::optional<uint16_t> o);

@@ -4,7 +4,7 @@
 #include <iostream>
 
 
-State::State(uint32_t base_pc, std::shared_ptr<BinaryLoader> loader, bool unkown)
+State::State(std::shared_ptr<BinaryLoader> loader, bool unkown)
     : modified_memory(), binary_file(loader) {
     for(int i = 0; i < registers.size(); i++){
         if(unkown)
@@ -12,7 +12,7 @@ State::State(uint32_t base_pc, std::shared_ptr<BinaryLoader> loader, bool unkown
         else
             registers[i] = 0;
     }
-    registers[PC] = base_pc;
+    registers[PC] = std::nullopt;
 }
 
 
@@ -37,22 +37,24 @@ void State::write_register(uint8_t reg, std::optional<uint16_t> val, bool byte){
         registers[reg] = val;
         return;
     }
-    
-    uint16_t good_val = val.value() & 0b11111111;
-    if(!registers[reg]){
-        registers[reg] = std::make_optional(good_val);
-        return;
-    }
 
-    registers[reg] = (registers[reg].value() & 0b1111111100000000) + good_val;
+    if(!registers[reg])
+        return;
+
+    registers[reg] = (registers[reg].value() & 0b1111111100000000) + (val.value() & 0b11111111);
 
 }
 
 
 std::optional<uint8_t> State::read_byte(uint32_t addr){
     auto mem_it = modified_memory.find(addr);
-    if(mem_it == modified_memory.end())
-        return binary_file->read_memory(addr) & 0b11111111;
+    if(mem_it == modified_memory.end()){
+        uint16_t res = binary_file->read_memory(addr) & 0b11111111;
+        if(res == -1)
+            return std::nullopt;
+        return res;
+    }
+    
     return mem_it->second;
 }
 
@@ -111,7 +113,7 @@ std::string State::dumpState(){
     dump << "Memory:\n";
     for(auto [addr, val] : modified_memory){
         if(val)
-            dump << std::hex << "0x" << addr << ": 0x" << val.value() << std::dec << "\n";
+            dump << std::hex << "0x" << addr << ": 0x" << (uint16_t)val.value() << std::dec << "\n";
         else
             dump << std::hex << "0x" << addr << ": UNKNOWN\n";
     }
@@ -136,6 +138,72 @@ std::optional<uint16_t> operator-(std::optional<uint16_t> o1, std::optional<uint
         if (o2) {
             return std::make_optional(o1.value() - o2.value());
         }
+    }
+    return std::nullopt;
+}
+
+
+std::optional<uint16_t> operator^(std::optional<uint16_t> o1, std::optional<uint16_t> o2) {
+    if (o1) {
+        if (o2) {
+            return std::make_optional(o1.value() ^ o2.value());
+        }
+    }
+    return std::nullopt;
+}
+
+
+std::optional<uint16_t> operator&(std::optional<uint16_t> o1, std::optional<uint16_t> o2) {
+    if (o1) {
+        if (o2) {
+            return std::make_optional(o1.value() & o2.value());
+        }
+    }
+    return std::nullopt;
+}
+
+
+std::optional<uint16_t> operator|(std::optional<uint16_t> o1, std::optional<uint16_t> o2) {
+    if (o1) {
+        if (o2) {
+            return std::make_optional(o1.value() & o2.value());
+        }
+    }
+    return std::nullopt;
+}
+
+
+std::optional<uint16_t> op_not(std::optional<uint16_t> o){
+    if(o)
+        return !o.value();
+    return std::nullopt;
+}
+
+
+std::optional<uint16_t> op_arith_right_shift(std::optional<uint16_t> o)
+{
+    if(o)
+        return (o.value() >> 1) | (o.value() & (1 << 15));
+    return std::nullopt;
+}
+
+
+std::optional<uint16_t> op_swpb(std::optional<uint16_t> o)
+{
+    if(o)
+        return (o.value() >> 8) + (o.value() << 8); 
+    return std::nullopt;
+}
+
+
+std::optional<uint16_t> op_sxt(std::optional<uint16_t> o)
+{
+    if(o){
+        if(o.value() & (1 << 7)){
+            return o.value() | 0b1111111100000000;
+        }
+        return o.value() & 0b11111111;
+        return 0; 
     }
     return std::nullopt;
 }

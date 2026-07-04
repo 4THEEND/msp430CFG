@@ -116,7 +116,14 @@ bool Instruction::should_get_complement(AddressingMode Am){
 bool Format1Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file){
     instruction_length = 1;
     address = instruction_address;
-    uint16_t instruction_header = binary_file->read_memory(instruction_address);
+    uint16_t instruction_header;
+    try{
+        instruction_header = binary_file->read_memory(instruction_address);
+    } catch (int exc){
+        return false;
+    }
+
+    
     if(instruction_header >> 12 != opcode)
         return false;
     
@@ -124,37 +131,38 @@ bool Format1Instruction::consume(uint32_t instruction_address, std::shared_ptr<B
     As = parse_mode((instruction_header >> 4) & 0b11, source);
     if(should_get_complement(As)){
         instruction_length++;
-        source_complement = binary_file->read_memory(instruction_address + 2);
+        
+        try{
+            source_complement = binary_file->read_memory(instruction_address + 2);
+        } catch (int exc){
+            return false;
+        }
     }
 
 
     destination = instruction_header & 0b1111;
     Ad = parse_mode((instruction_header >> 7) & 1, destination);
     if(should_get_complement(Ad)){
-        destination_complement = binary_file->read_memory(instruction_address + 2 * instruction_length);
+        try{
+            destination_complement = binary_file->read_memory(instruction_address + 2 * instruction_length);
+        } catch (int exc){
+            return false;
+        }
+
         instruction_length++;
     }
 
     byte_instruction = (instruction_header >> 6) & 1;
 
-    if(destination == PC){
-        if(As == AddressingMode::INDIRECT_AUTOINCREMENT && source == SP){
+    if(destination == PC && opcode == MOV){
+        if(As == AddressingMode::INDIRECT_AUTOINCREMENT && source == SP)
             is_ret = true;
-        }
         modify_control_flow = true;
-        if(As == AddressingMode::IMMEDIATE_MODE 
-            || As == AddressingMode::CONSTANT_MODE0
-            || As == AddressingMode::CONSTANT_MODE1
-            || As == AddressingMode::CONSTANT_MODE2
-            || As == AddressingMode::CONSTANT_MODE4
-            || As == AddressingMode::CONSTANT_MODE8
-            || As == AddressingMode::CONSTANT_MODE_NEG1
-        )
-            next_addrs = { source_complement };
-    } else {
+    } 
+    else {
         modify_control_flow = false;
-        next_addrs = {instruction_address + 2 * instruction_length };
     }
+
     return true;
 } 
 
@@ -239,10 +247,18 @@ std::string Format1Instruction::abstractGetString(std::string instruction_name){
 
 
 bool Format2Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file) {
-    uint16_t instruction_header = binary_file->read_memory(instruction_address);
+    uint16_t instruction_header;
+    try{
+        instruction_header = binary_file->read_memory(instruction_address);
+    } catch (int exc){
+        return false;
+    }
+
     instruction_length = 1;
     address = instruction_address;
     modify_control_flow = (opcode == CALL || opcode == RETI ? true : false);
+    is_call = opcode == CALL;
+
     if((instruction_header >> 10 != FORMAT_2_PREFIX) || (((instruction_header >> 7) & 0b111) != opcode))
         return false;
 
@@ -250,26 +266,16 @@ bool Format2Instruction::consume(uint32_t instruction_address, std::shared_ptr<B
     As = parse_mode((instruction_header >> 4) & 0b11, source);
     if(should_get_complement(As)){
         instruction_length++;
-        source_complement = binary_file->read_memory(instruction_address + 2);
+
+        try{
+            source_complement = binary_file->read_memory(instruction_address + 2);
+        } catch (int exc){
+            return false;
+        }
     }
 
     byte_instruction = (instruction_header >> 6) & 1;
-    if(opcode == RETI)
-        next_addrs = {};
-    else if(opcode != CALL)
-        next_addrs = {instruction_address + 2 * instruction_length };
-    else {
-        is_call = true;
-        if(As == AddressingMode::IMMEDIATE_MODE 
-            || As == AddressingMode::CONSTANT_MODE0
-            || As == AddressingMode::CONSTANT_MODE1
-            || As == AddressingMode::CONSTANT_MODE2
-            || As == AddressingMode::CONSTANT_MODE4
-            || As == AddressingMode::CONSTANT_MODE8
-            || As == AddressingMode::CONSTANT_MODE_NEG1
-        )
-            next_addrs = { source_complement };
-    }
+
     return true;
 }
 
@@ -359,7 +365,13 @@ int16_t sign_extend(int16_t addr){
 
 
 bool Format3Instruction::consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file){
-    uint16_t instruction_header = binary_file->read_memory(instruction_address);
+    uint16_t instruction_header;
+    try{
+        instruction_header = binary_file->read_memory(instruction_address);
+    } catch (int exc){
+        return false;
+    }
+
     instruction_length = 1;
     address = instruction_address;
     modify_control_flow = true;
@@ -367,9 +379,6 @@ bool Format3Instruction::consume(uint32_t instruction_address, std::shared_ptr<B
         return false;
 
     pc_offset = sign_extend(instruction_header & 0b1111111111);
-    next_addrs = {instruction_address + 2 + 2 * pc_offset};
-    if(condition != JMP)
-        next_addrs.emplace_back(instruction_address + 2 * instruction_length);
     return true;
 }
 
@@ -381,6 +390,16 @@ int Format3Instruction::get_instruction_timing(){
 
 std::array<uint16_t, 3> Format3Instruction::get_instruction(){
     return {(uint16_t)((FORMAT_3_PREFIX << 13) + (condition << 10) + (pc_offset & 0b1111111111)), 0, 0};
+}
+
+
+std::vector<uint32_t> Format3Instruction::get_next_addrs(State &state)
+{
+    std::vector<uint32_t> next_addrs = {address + 2 + 2 * pc_offset};
+    if(condition != JMP)
+        next_addrs.emplace_back(address + 2 * instruction_length);
+
+    return next_addrs;
 }
 
 
@@ -450,97 +469,343 @@ std::pair<bool, std::optional<uint16_t>> parse_destination(uint8_t parameter, Ad
 }
 
 
-void MOVInstruction::update_state(State& state){
-    std::optional<uint16_t> p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
+std::vector<uint32_t> MOVInstruction::get_next_addrs(State& state){
+    std::optional<uint16_t> p_source{}, location{};
+    bool is_memory;
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
+    } catch (int exc){
+        return {};
+    }
 
     if(is_memory)
         state.write_memory(location, p_source, byte_instruction);
     else 
         state.write_register(location.value(), p_source, byte_instruction);
+    
+    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && p_source)
+        return { p_source.value() };
+
+    return {address + 2 * instruction_length };
 }
 
 
-void ADDInstruction::update_state(State &state)
+std::vector<uint32_t> ADDInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, p_destination{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> addition = p_source + p_destination;
+    if(is_memory)
+        state.write_memory(location, addition, byte_instruction);
+    else 
+        state.write_register(location.value(), addition, byte_instruction);
+
+    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && addition)
+        return { addition.value() };
+
+    return {address + 2 * instruction_length };    
 }
 
 
-void ADDCInstruction::update_state(State &state)
+std::vector<uint32_t> ADDCInstruction::get_next_addrs(State &state)
 {
+    // TODO: Manage carry bit
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
+    if(is_memory)
+        state.write_memory(location, std::nullopt, byte_instruction);
+    else 
+        state.write_register(location.value(), std::nullopt, byte_instruction);
+
+    return {address + 2 * instruction_length };
 }
 
 
-void SUBCInstruction::update_state(State &state)
+std::vector<uint32_t> SUBCInstruction::get_next_addrs(State &state)
 {
+    // TODO: Manage carry bit
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
+    if(is_memory)
+        state.write_memory(location, std::nullopt, byte_instruction);
+    else 
+        state.write_register(location.value(), std::nullopt, byte_instruction);
+
+    return {address + 2 * instruction_length };
 }
 
 
-void SUBInstruction::update_state(State &state)
+std::vector<uint32_t> SUBInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, p_destination{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> substraction = p_source + p_destination;
+    if(is_memory)
+        state.write_memory(location, substraction, byte_instruction);
+    else 
+        state.write_register(location.value(), substraction, byte_instruction);
+
+    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && substraction)
+        return { substraction.value() };
+
+    return {address + 2 * instruction_length };  
 }
 
 
-void DADDInstruction::update_state(State &state)
+std::vector<uint32_t> DADDInstruction::get_next_addrs(State &state)
 {
+    // TODO: Manage carry bit
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
+    if(is_memory)
+        state.write_memory(location, std::nullopt, byte_instruction);
+    else 
+        state.write_register(location.value(), std::nullopt, byte_instruction);
+
+    return {address + 2 * instruction_length };
 }
 
 
-void BITInstruction::update_state(State &state)
+std::vector<uint32_t> BICInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, p_destination{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> bic_result = op_not(p_source) & p_destination;
+    if(is_memory)
+        state.write_memory(location, bic_result, byte_instruction);
+    else 
+        state.write_register(location.value(), bic_result, byte_instruction);
+
+    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && bic_result)
+        return { bic_result.value() };
+
+    return {address + 2 * instruction_length };  
 }
 
 
-void BICInstruction::update_state(State &state)
+std::vector<uint32_t> BISInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, p_destination{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> bic_result = p_source | p_destination;
+    if(is_memory)
+        state.write_memory(location, bic_result, byte_instruction);
+    else 
+        state.write_register(location.value(), bic_result, byte_instruction);
+
+    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && bic_result)
+        return { bic_result.value() };
+
+    return {address + 2 * instruction_length };
 }
 
 
-void BISInstruction::update_state(State &state)
+std::vector<uint32_t> XORInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, p_destination{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> xor_result = p_source + p_destination;
+    if(is_memory)
+        state.write_memory(location, xor_result, byte_instruction);
+    else 
+        state.write_register(location.value(), xor_result, byte_instruction);
+
+    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && xor_result)
+        return { xor_result.value() };
+
+    return {address + 2 * instruction_length };  
 }
 
 
-void XORInstruction::update_state(State &state)
+std::vector<uint32_t> ANDInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, p_destination{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> and_result = p_source + p_destination;
+    if(is_memory)
+        state.write_memory(location, and_result, byte_instruction);
+    else 
+        state.write_register(location.value(), and_result, byte_instruction);
+
+    if(Ad == AddressingMode::REGISTER_MODE && destination == PC && and_result)
+        return { and_result.value() };
+
+    return {address + 2 * instruction_length };  
 }
 
 
-void ANDInstruction::update_state(State &state)
+std::vector<uint32_t> RRCInstruction::get_next_addrs(State &state)
 {
+    // TODO: Manage carry bit
+    auto [is_memory, location] = parse_destination(source, As, source_complement, state);
+    if(is_memory)
+        state.write_memory(location, std::nullopt, byte_instruction);
+    else 
+        state.write_register(location.value(), std::nullopt, byte_instruction);
+
+    return {address + 2 * instruction_length };
 }
 
 
-void RRCInstruction::update_state(State &state)
+std::vector<uint32_t> SWPBInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(source, As, source_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> swap_result = op_swpb(p_source);
+    if(is_memory)
+        state.write_memory(location, swap_result, byte_instruction);
+    else 
+        state.write_register(location.value(), swap_result, byte_instruction);
+
+    if(As == AddressingMode::REGISTER_MODE && source == PC && swap_result)
+        return { swap_result.value() };
+
+    return {address + 2 * instruction_length }; 
 }
 
 
-void SWPBInstruction::update_state(State &state)
+std::vector<uint32_t> RRAInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(source, As, source_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> shift_result = op_arith_right_shift(p_source);
+    if(is_memory)
+        state.write_memory(location, shift_result, byte_instruction);
+    else 
+        state.write_register(location.value(), shift_result, byte_instruction);
+
+    if(As == AddressingMode::REGISTER_MODE && source == PC && shift_result)
+        return { shift_result.value() };
+
+    return {address + 2 * instruction_length }; 
 }
 
 
-void RRAInstruction::update_state(State &state)
+std::vector<uint32_t> SXTInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{}, location{};
+    bool is_memory{};
+
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+        std::tie(is_memory, location) = parse_destination(source, As, source_complement, state);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> extend_result = op_sxt(p_source);
+    if(is_memory)
+        state.write_memory(location, extend_result, byte_instruction);
+    else 
+        state.write_register(location.value(), extend_result, byte_instruction);
+
+    if(As == AddressingMode::REGISTER_MODE && source == PC && extend_result)
+        return { extend_result.value() };
+
+    return {address + 2 * instruction_length }; 
 }
 
 
-void SXTInstruction::update_state(State &state)
+std::vector<uint32_t> PUSHInstruction::get_next_addrs(State &state)
 {
+    std::optional<uint16_t> p_source{};
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+    } catch (int exc){
+        return {};
+    }
+
+    std::optional<uint16_t> sp = state.read_register(SP);
+    state.write_memory(sp, p_source);
+    state.write_register(SP, sp - 1);
+
+    return {address + 2 * instruction_length }; 
 }
 
 
-void PUSHInstruction::update_state(State &state)
+std::vector<uint32_t> CALLInstruction::get_next_addrs(State &state)
 {
-}
+    std::optional<uint16_t> p_source{};
+    try{
+        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
+    } catch (int exc){
+        return {};
+    }
+    
+    std::optional<uint16_t> sp = state.read_register(SP);
+    state.write_memory(sp, p_source);
+    state.write_register(SP, sp - 1);
 
-
-void CALLInstruction::update_state(State &state)
-{
-}
-
-
-void RETIInstruction::update_state(State &state)
-{
+    if(p_source)
+        return { p_source.value() };
+    return {};
 }

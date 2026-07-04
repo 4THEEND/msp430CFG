@@ -87,16 +87,14 @@ public:
     bool is_ret = false;
     bool is_call = false;
     bool modify_control_flow;
-
-    // Only use during disassembly
-    std::vector<uint32_t> next_addrs;
     
 public:
     virtual std::string getString() = 0;
     virtual bool consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file) = 0;
     virtual int get_instruction_timing() = 0;
     virtual std::array<uint16_t, 3> get_instruction() = 0;
-    virtual void update_state(State& state){};
+
+    virtual std::vector<uint32_t> get_next_addrs(State& state){ return {address + 2 * instruction_length }; };
 
     friend std::ostream& operator<<(std::ostream& os, Instruction& instr){
         os << instr.getString();
@@ -149,7 +147,7 @@ class MOVInstruction : public Format1Instruction {
 public:
     MOVInstruction() : Format1Instruction(MOV) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         if(is_ret)
@@ -162,7 +160,7 @@ class ADDInstruction : public Format1Instruction {
 public:
     ADDInstruction() : Format1Instruction(ADD) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("add");
@@ -173,7 +171,7 @@ class ADDCInstruction : public Format1Instruction {
 public:
     ADDCInstruction() : Format1Instruction(ADDC) {};
 
-    void update_state(State& state) override;    
+    std::vector<uint32_t> get_next_addrs(State& state) override;    
 
     std::string getString() {
         return abstractGetString("addc");
@@ -184,7 +182,7 @@ class SUBCInstruction : public Format1Instruction {
 public:
     SUBCInstruction() : Format1Instruction(SUBC) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("subc");
@@ -195,7 +193,7 @@ class SUBInstruction : public Format1Instruction {
 public:
     SUBInstruction() : Format1Instruction(SUB) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("sub");
@@ -215,7 +213,7 @@ class DADDInstruction : public Format1Instruction {
 public:
     DADDInstruction() : Format1Instruction(DADD) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("dadd");
@@ -226,8 +224,6 @@ class BITInstruction : public Format1Instruction {
 public:
     BITInstruction() : Format1Instruction(BIT) {};
 
-    void update_state(State& state) override;
-
     std::string getString() {
         return abstractGetString("bit");
     }
@@ -237,7 +233,7 @@ class BICInstruction : public Format1Instruction {
 public:
     BICInstruction() : Format1Instruction(BIC) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("bic");
@@ -248,7 +244,7 @@ class BISInstruction : public Format1Instruction {
 public:
     BISInstruction() : Format1Instruction(BIS) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("bis");
@@ -259,7 +255,7 @@ class XORInstruction : public Format1Instruction {
 public:
     XORInstruction() : Format1Instruction(XOR) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("xor");
@@ -270,7 +266,7 @@ class ANDInstruction : public Format1Instruction {
 public:
     ANDInstruction() : Format1Instruction(AND) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("and");
@@ -307,7 +303,7 @@ class RRCInstruction : public Format2Instruction {
 public:
     RRCInstruction() : Format2Instruction(RRC) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("rrc");
@@ -318,7 +314,7 @@ class SWPBInstruction : public Format2Instruction {
 public:
     SWPBInstruction() : Format2Instruction(SWPB) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("swpb");
@@ -329,7 +325,7 @@ class RRAInstruction : public Format2Instruction {
 public:
     RRAInstruction() : Format2Instruction(RRA) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("rra");
@@ -340,7 +336,7 @@ class SXTInstruction : public Format2Instruction {
 public:
     SXTInstruction() : Format2Instruction(SXT) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("sxt");
@@ -351,7 +347,7 @@ class PUSHInstruction : public Format2Instruction {
 public:
     PUSHInstruction() : Format2Instruction(PUSH) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("push");
@@ -362,7 +358,7 @@ class CALLInstruction : public Format2Instruction {
 public:
     CALLInstruction() : Format2Instruction(CALL) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
     std::string getString() {
         return abstractGetString("call");
@@ -373,7 +369,7 @@ class RETIInstruction : public Format2Instruction {
 public:
     RETIInstruction() : Format2Instruction(RETI) {};
 
-    void update_state(State& state) override;
+    std::vector<uint32_t> get_next_addrs(State& state) override { return {}; };
 
     std::string getString() {
         return abstractGetString("reti");
@@ -395,6 +391,7 @@ public:
     bool consume(uint32_t instruction_address, std::shared_ptr<BinaryLoader> binary_file) override;
     int get_instruction_timing() override;
     std::array<uint16_t, 3> get_instruction() override;
+    std::vector<uint32_t> get_next_addrs(State& state) override;
 
 protected:
     std::string abstractGetString(std::string instruction_name);
