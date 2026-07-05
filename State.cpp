@@ -12,8 +12,20 @@ State::State(std::shared_ptr<BinaryLoader> loader, bool unkown)
         else
             registers[i] = 0;
     }
+
+    registers[CG] = 0;
     registers[PC] = std::nullopt;
 }
+
+
+void State::clear_gp_registers(){
+    for(int i = 1; i < NB_REGISTERS; i++){
+        registers[i] = std::nullopt;
+    }
+
+    registers[CG] = 0;
+    modified_memory = {};
+ }
 
 
 std::optional<uint16_t> State::read_register(uint8_t reg, bool byte){

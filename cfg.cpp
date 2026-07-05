@@ -242,14 +242,29 @@ void cfg::exportCFGToDOT(const std::string &filename)
 }
 
 
-void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble, bool use_symbols, bool add){
+void cfg::disassemble(std::vector<std::string>& symbols_to_disassemble, uint32_t start_addr, bool use_symbols, bool add){
     if(binary_file != nullptr){
+        std::shared_ptr<BasicBlock> current_bb{};
+
+        if(start_addr != 0xbeef){
+            std::cout << "Reversing from  0x" << std::hex << start_addr << std::dec << "\n";
+                        
+            auto it = seen.find(start_addr);
+            if(it != seen.end()){
+                current_bb = splitBlock(it->second, start_addr);
+            } else {
+                current_bb = std::make_shared<BasicBlock>(start_addr);
+                m_basic_blocks.emplace_back(current_bb);
+            }
+
+            explore_address(start_addr, current_bb, {}, {}, State(binary_file, true));
+            return;
+        }
+
         if(!add){
             seen = {};
             m_basic_blocks = {};
         }
-
-        std::shared_ptr<BasicBlock> current_bb{};
 
         if(symbols_to_disassemble.empty()){
             current_bb = std::make_shared<BasicBlock>(binary_file->entry_addr);
@@ -311,7 +326,7 @@ void cfg::add_edge(uint32_t source, uint32_t destination){
 
 
 std::vector<Path> cfg::walkthrough_bb(Timings& timings, std::shared_ptr<BasicBlock> bb, Path path, int depth){
-    //std::cout << depth << " " << path.size() << ": \n";
+        //std::cout << depth << " " << path.size() << ": \n";
     for(std::shared_ptr<Instruction> instruction : bb->instructions){
         if(path.size() >= timings.trace_length()){
             std::cout << "Went through the entire trace!\n";

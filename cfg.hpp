@@ -38,7 +38,7 @@ private:
 public:
     cfg(std::shared_ptr<BinaryLoader> file) : binary_file(file), m_basic_blocks(), seen() {};
     void exportCFGToDOT(const std::string& filename);
-    void disassemble(std::vector<std::string>& symbols_to_disassemble, bool use_symbols = true, bool add = true);
+    void disassemble(std::vector<std::string>& symbols_to_disassemble, uint32_t start_addr = 0xbeef, bool use_symbols = true, bool add = true);
     void add_edge(uint32_t source, uint32_t destination);
     void walkthrough(uint32_t begining_addr, Timings& timings);
 

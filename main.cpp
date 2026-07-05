@@ -129,7 +129,7 @@ void disassemble_callback(int argc, char** argv, Files& files, std::string& acti
         .help("Symbols where we want to start our recursive disassembly")
         .nargs(0, -1);
 
-    program.add_argument("--symbols")
+    program.add_argument("--use-symbols")
         .help("Use this flag when you just want to disasseble from the entrypoint")
         .default_value(false)
         .implicit_value(true);
@@ -138,6 +138,10 @@ void disassemble_callback(int argc, char** argv, Files& files, std::string& acti
         .help("Flag used when you want to reconstruct the entire cfg")
         .default_value(true)
         .implicit_value(false);
+
+    program.add_argument("--entry")
+        .help("Begining address for the disassembly")
+        .scan<'x', unsigned int>();
 
     if(!parse_args(program, argc, argv))
         return;
@@ -150,7 +154,12 @@ void disassemble_callback(int argc, char** argv, Files& files, std::string& acti
         return;
     }
 
-    std::get<cfg>(it->second).disassemble(symbols_to_start, program.get<bool>("--symbols"), program.get<bool>("--no-add"));
+    uint32_t val = 0xbeef;
+    if (program.present<unsigned int>("--entry")) {
+        val = program.get<unsigned int>("--entry");
+    }
+
+    std::get<cfg>(it->second).disassemble(symbols_to_start, val, program.get<bool>("--use-symbols"), program.get<bool>("--no-add"));
     std::cout << "Successfuly disassembled the binary!\n";
 }
 
