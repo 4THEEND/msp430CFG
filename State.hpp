@@ -47,10 +47,11 @@ public:
     State(std::shared_ptr<BinaryLoader> loader, bool unkown = false);
     inline void update_pc(uint32_t pc){ registers[PC] = pc; }
     void clear_gp_registers(){
-        /*
         for(int i = 4; i < NB_REGISTERS - 1; i++){
             registers[i] = std::nullopt;
-        } */
+        }
+
+        modified_memory = {};
     }
 
     std::optional<uint16_t> read_register(uint8_t reg, bool byte = false);

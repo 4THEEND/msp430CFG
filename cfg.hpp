@@ -36,16 +36,16 @@ private:
     std::shared_ptr<BinaryLoader> binary_file;
 
 public:
-    cfg(std::shared_ptr<BinaryLoader> file) : binary_file(file){};
+    cfg(std::shared_ptr<BinaryLoader> file) : binary_file(file), m_basic_blocks(), seen() {};
     void exportCFGToDOT(const std::string& filename);
-    void disassemble(std::vector<std::string>& symbols_to_disassemble, bool use_symbols = true);
+    void disassemble(std::vector<std::string>& symbols_to_disassemble, bool use_symbols = true, bool add = true);
     void add_edge(uint32_t source, uint32_t destination);
     void walkthrough(uint32_t begining_addr, Timings& timings);
 
 private:
     std::shared_ptr<BasicBlock> splitBlock(std::shared_ptr<BasicBlock> current_block, uint32_t addr);
     void explore_address(uint32_t instr_address, std::shared_ptr<BasicBlock> current_basic_block, std::stack<uint32_t> return_stack, 
-            std::map<uint32_t, int> seen_twice, State state, int treshold = 1
+            std::map<uint32_t, int> seen_twice, State state, int depth = 0, int treshold = 1
     );
     std::vector<Path> walkthrough_bb(Timings& timings, std::shared_ptr<BasicBlock> bb, Path path, int depth = 0);
 };

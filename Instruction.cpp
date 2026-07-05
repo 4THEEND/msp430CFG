@@ -398,8 +398,6 @@ std::set<uint32_t> Format3Instruction::get_next_addrs(State &state)
     std::set<uint32_t> next_addrs = {address + 2 + 2 * pc_offset};
     if(condition != JMP)
         next_addrs.insert(address + 2 * instruction_length);
-    
-    state.clear_gp_registers();
 
     return next_addrs;
 }
@@ -471,16 +469,29 @@ std::pair<bool, std::optional<uint16_t>> parse_destination(uint8_t parameter, Ad
 }
 
 
-std::set<uint32_t> MOVInstruction::get_next_addrs(State& state){
-    std::optional<uint16_t> p_source{}, location{};
-    bool is_memory;
-
+std::pair<bool, std::optional<uint32_t>> parse_parameters_wrapper(uint8_t parameter, AddressingMode am, uint16_t parameter_extension, State& state, bool byte){
+    std::optional<uint32_t> ret_value{};
     try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
+        ret_value = parse_parameter(parameter, am, parameter_extension, state, byte);
     } catch (int exc){
-        return {};
+        state.clear_gp_registers();
+        try {
+            ret_value = parse_parameter(parameter, am, parameter_extension, state, byte);
+        } catch (int snd) {
+            return std::make_pair(false, ret_value);
+        }
     }
+
+    return std::make_pair(true, ret_value);
+}
+
+
+std::set<uint32_t> MOVInstruction::get_next_addrs(State& state){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    if(!is_valid)
+        return {};
+
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
 
     if(is_memory)
         state.write_memory(location, p_source, byte_instruction);
@@ -496,16 +507,12 @@ std::set<uint32_t> MOVInstruction::get_next_addrs(State& state){
 
 std::set<uint32_t> ADDInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, p_destination{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    auto [is_valid_dest, p_destination] = parse_parameters_wrapper(destination, Ad, destination_complement, state, byte_instruction);
+    if(!is_valid || !is_valid_dest)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
 
     std::optional<uint16_t> addition = p_source + p_destination;
     if(is_memory)
@@ -548,16 +555,12 @@ std::set<uint32_t> SUBCInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> SUBInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, p_destination{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    auto [is_valid_dest, p_destination] = parse_parameters_wrapper(destination, Ad, destination_complement, state, byte_instruction);
+    if(!is_valid || !is_valid_dest)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
 
     std::optional<uint16_t> substraction = p_source - p_destination;
     if(is_memory)
@@ -587,16 +590,12 @@ std::set<uint32_t> DADDInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> BICInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, p_destination{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    auto [is_valid_dest, p_destination] = parse_parameters_wrapper(destination, Ad, destination_complement, state, byte_instruction);
+    if(!is_valid || !is_valid_dest)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
 
     std::optional<uint16_t> bic_result = op_not(p_source) & p_destination;
     if(is_memory)
@@ -613,16 +612,12 @@ std::set<uint32_t> BICInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> BISInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, p_destination{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    auto [is_valid_dest, p_destination] = parse_parameters_wrapper(destination, Ad, destination_complement, state, byte_instruction);
+    if(!is_valid || !is_valid_dest)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
 
     std::optional<uint16_t> bis_result = p_source | p_destination;
     if(is_memory)
@@ -639,16 +634,12 @@ std::set<uint32_t> BISInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> XORInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, p_destination{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    auto [is_valid_dest, p_destination] = parse_parameters_wrapper(destination, Ad, destination_complement, state, byte_instruction);
+    if(!is_valid || !is_valid_dest)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
 
     std::optional<uint16_t> xor_result = p_source ^ p_destination;
     if(is_memory)
@@ -665,16 +656,12 @@ std::set<uint32_t> XORInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> ANDInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, p_destination{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        p_destination = parse_parameter(destination, Ad, destination_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(destination, Ad, destination_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    auto [is_valid_dest, p_destination] = parse_parameters_wrapper(destination, Ad, destination_complement, state, byte_instruction);
+    if(!is_valid || !is_valid_dest)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(destination, Ad, destination_complement, state);
 
     std::optional<uint16_t> and_result = p_source & p_destination;
     if(is_memory)
@@ -704,15 +691,11 @@ std::set<uint32_t> RRCInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> SWPBInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(source, As, source_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    if(!is_valid)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(source, As, source, state);
 
     std::optional<uint16_t> swap_result = op_swpb(p_source);
     if(is_memory)
@@ -729,15 +712,11 @@ std::set<uint32_t> SWPBInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> RRAInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(source, As, source_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    if(!is_valid)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(source, As, source, state);
 
     std::optional<uint16_t> shift_result = op_arith_right_shift(p_source);
     if(is_memory)
@@ -754,15 +733,11 @@ std::set<uint32_t> RRAInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> SXTInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{}, location{};
-    bool is_memory{};
-
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-        std::tie(is_memory, location) = parse_destination(source, As, source_complement, state);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    if(!is_valid)
         return {};
-    }
+        
+    auto [is_memory, location] = parse_destination(source, As, source, state);
 
     std::optional<uint16_t> extend_result = op_sxt(p_source);
     if(is_memory)
@@ -779,12 +754,9 @@ std::set<uint32_t> SXTInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> PUSHInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{};
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    if(!is_valid)
         return {};
-    }
 
     std::optional<uint16_t> sp = state.read_register(SP);
     state.write_memory(sp, p_source);
@@ -796,18 +768,13 @@ std::set<uint32_t> PUSHInstruction::get_next_addrs(State &state)
 
 std::set<uint32_t> CALLInstruction::get_next_addrs(State &state)
 {
-    std::optional<uint16_t> p_source{};
-    try{
-        p_source = parse_parameter(source, As, source_complement, state, byte_instruction);
-    } catch (int exc){
+    auto [is_valid, p_source] = parse_parameters_wrapper(source, As, source_complement, state, byte_instruction);
+    if(!is_valid)
         return {};
-    }
     
     std::optional<uint16_t> sp = state.read_register(SP);
     state.write_memory(sp, p_source);
     state.write_register(SP, sp - 1);
-
-    state.clear_gp_registers();
 
     if(p_source)
         return { p_source.value() };
